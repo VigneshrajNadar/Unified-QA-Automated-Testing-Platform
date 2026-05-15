@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="13.398" timestamp="2026-03-31T16:21:11.758703+05:30" hostname="vigneshraj"><testcase classname="tests.test_e2e_flow.TestEcommerceFlow" name="test_full_flow" time="13.267" /></testsuite></testsuites>

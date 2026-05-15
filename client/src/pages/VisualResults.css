@@ -1,0 +1,325 @@
+/* Visual Results Page */
+
+.visual-results-page {
+    padding: 2rem;
+    max-width: 1600px;
+    margin: 0 auto;
+    color: var(--text-primary) !important;
+}
+
+.info-box {
+    background: var(--bg-secondary);
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 2rem;
+    border-left: 6px solid #28a745;
+    border: 1px solid var(--border);
+    border-left-width: 6px;
+}
+
+.info-box.warning {
+    border-left-color: #ffc107;
+    background: rgba(255, 193, 7, 0.1);
+}
+
+.info-box h3 {
+    margin: 0 0 1rem 0;
+    color: var(--text-primary);
+}
+
+.info-box p {
+    margin: 0.5rem 0;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.info-box ul {
+    margin: 1rem 0;
+    padding-left: 2rem;
+}
+
+.info-box li {
+    margin: 0.5rem 0;
+    color: var(--text-secondary);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: var(--bg-secondary);
+    padding: 2rem;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--border);
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #3498db;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-size: 0.875rem;
+    letter-spacing: 1px;
+}
+
+.screenshots-info {
+    background: var(--bg-primary);
+    padding: 2rem;
+    border-radius: 12px;
+    border: 2px dashed #3498db;
+}
+
+.screenshots-info h3 {
+    margin: 0 0 1rem 0;
+    color: var(--text-primary);
+}
+
+.path-info {
+    background: #0f172a;
+    color: #ecf0f1;
+    padding: 1rem;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    margin: 1rem 0;
+    border: 1px solid var(--border);
+}
+
+.path-info code {
+    color: #3498db;
+    font-weight: bold;
+}
+
+.help-text {
+    color: var(--text-secondary);
+    font-style: italic;
+    margin-top: 1rem;
+}
+
+/* Reuse diff styles from VisualDiffs.css */
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0;
+}
+
+.summary-card {
+    background: var(--bg-secondary);
+    padding: 2rem;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-top: 4px solid;
+    border: 1px solid var(--border);
+    border-top-width: 4px;
+}
+
+.summary-card.pass {
+    border-top-color: #28a745;
+}
+
+.summary-card.warning {
+    border-top-color: #ffc107;
+}
+
+.summary-card.fail {
+    border-top-color: #dc3545;
+}
+
+.summary-number {
+    font-size: 3rem;
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+.summary-label {
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.diffs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.diff-card {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-left: 6px solid;
+    border: 1px solid var(--border);
+    border-left-width: 6px;
+}
+
+.diff-card.pass {
+    border-left-color: #28a745;
+}
+
+.diff-card.warning {
+    border-left-color: #ffc107;
+}
+
+.diff-card.fail {
+    border-left-color: #dc3545;
+}
+
+.diff-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--border);
+}
+
+.diff-header h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: var(--text-primary);
+}
+
+.diff-url {
+    margin: 0.5rem 0 0 0;
+    color: #3498db;
+    font-size: 0.875rem;
+}
+
+.diff-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+.metric {
+    display: flex;
+    justify-content: space-between;
+}
+
+.metric span {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.metric strong {
+    color: var(--text-primary);
+    font-size: 1.125rem;
+}
+
+.screenshot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.screenshot-item {
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg-primary);
+}
+
+.screenshot-item.highlight {
+    border-color: #e74c3c;
+    border-width: 3px;
+}
+
+.screenshot-item h4 {
+    margin: 0;
+    padding: 1rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+}
+
+.screenshot-item.highlight h4 {
+    background: #e74c3c;
+    color: white;
+}
+
+.screenshot-item img {
+    width: 100%;
+    height: auto;
+    display: block;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.screenshot-item img:hover {
+    transform: scale(1.02);
+}
+
+.no-image {
+    padding: 4rem 2rem;
+    text-align: center;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+fullscreen-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.fullscreen-modal .modal-content {
+    position: relative;
+    max-width: 95vw;
+    max-height: 95vh;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 2rem;
+    border: 1px solid var(--border);
+}
+
+.fullscreen-modal h2 {
+    margin: 0 0 1.5rem 0;
+    color: var(--text-primary);
+}
+
+.fullscreen-modal .close-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: #e74c3c;
+    color: white;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+.fullscreen-modal .close-btn:hover {
+    background: #c0392b;
+    transform: rotate(90deg);
+}

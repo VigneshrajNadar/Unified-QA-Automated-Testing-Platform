@@ -1,0 +1,46 @@
+{
+    "summary": {
+        "passed": 6,
+        "failed": 0,
+        "total": 6
+    },
+    "steps": [
+        {
+            "step": "Login",
+            "description": "Navigated to login page and authenticated as standard_user",
+            "status": "PASSED",
+            "timestamp": "16:21:22"
+        },
+        {
+            "step": "Product Selection",
+            "description": "Selected the first product from the inventory",
+            "status": "PASSED",
+            "timestamp": "16:21:22"
+        },
+        {
+            "step": "Add to Cart",
+            "description": "Added product to cart and navigated to cart page",
+            "status": "PASSED",
+            "timestamp": "16:21:22"
+        },
+        {
+            "step": "Cart Verification",
+            "description": "Verified cart items and proceeded to checkout",
+            "status": "PASSED",
+            "timestamp": "16:21:22"
+        },
+        {
+            "step": "Checkout Process",
+            "description": "Entered shipping details and finished checkout",
+            "status": "PASSED",
+            "timestamp": "16:21:23"
+        },
+        {
+            "step": "Order Confirmation",
+            "description": "Verified 'Thank You' message on confirmation page",
+            "status": "PASSED",
+            "timestamp": "16:21:23"
+        }
+    ],
+    "scanTime": "2026-03-31 16:21:11"
+}
