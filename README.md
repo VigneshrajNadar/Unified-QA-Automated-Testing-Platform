@@ -43,28 +43,37 @@ The **Unified QA & Automated Testing Platform** is a comprehensive, full-stack o
 
 ---
 
-## ✨ Core Modules & Features
+## ✨ Core Modules, Tools, & Expected Outputs
 
-### 1. 🤖 AI Test Generation (`/server/routes/aiTestGen.js`)
-Leverages integrated AI models (like G4F and specialized Python generators) to dynamically create complex, syntactically correct test scripts based on natural language requirements. This drastically reduces the time spent on writing boilerplate test cases.
+### 1. 🤖 AI Test Generation Module (`/server/routes/aiTestGen.js`)
+*   **What it does:** Uses integrated Large Language Models (LLMs) via the `g4f` Python wrapper to automatically generate complete, syntactically valid Javascript/Python automation scripts based on plain English user prompts (e.g., "Write a test to login and add an item to the cart").
+*   **Expected Output:** Returns a fully formed, executable `.js` (Selenium/Playwright) or `.py` code block that users can directly save or execute within the platform.
 
-### 2. 🌐 Web & UI Automation (`/server/services/seleniumService.js`)
-Execute robust end-to-end UI tests on remote or local browser instances. It supports uploading custom `.js` or `.py` scripts, parsing the results, and returning detailed logs and error traces.
+### 2. 🌐 Web & UI Automation Service (`/server/services/seleniumService.js` & `playwrightRunner.js`)
+*   **What it does:** Orchestrates browser-based End-to-End (E2E) testing. Users upload scripts or write them in the dashboard. The backend utilizes `selenium-webdriver` or `playwright` to spawn a headless/headed browser, execute the actions (clicks, inputs, assertions), and capture telemetry.
+*   **Expected Output:** A structured JSON response detailing the `status` (Pass/Fail), execution `duration`, full `console logs`, `stack traces` (if failed), and optionally base64 encoded `screenshots` of the final state or failure point.
 
 ### 3. 🔌 API Testing Hub (`/server/services/apiExecutor.js`)
-Provides an interactive interface to build, validate, and execute HTTP requests. It supports advanced assertions, authentication injection (Bearer, Basic), parameterization, and direct Swagger/OpenAPI spec ingestion.
+*   **What it does:** Bypasses UI to directly interact with REST APIs. It parses user-defined requests (GET, POST, PUT, DELETE), handles header injection (Authorization, Content-Type), and allows users to define expected assertion parameters (Expected Status Code, Expected Body patterns). It can also parse `Swagger/OpenAPI` definitions to auto-populate endpoints.
+*   **Expected Output:** Displays the raw HTTP `Status Code` (e.g., 200 OK), Response `Headers`, parsed `JSON Body`, and an `Assertion Report` indicating whether the actual response matched the expected criteria.
 
-### 4. 👁️ Visual Regression Testing (`/server/routes/visualTesting.js`)
-Automatically detects unintended UI changes. The system captures screenshots of the current web state and compares them against approved baselines using `pixelmatch`, highlighting visual discrepancies.
+### 4. 👁️ Visual Regression Testing (VRT) (`/server/routes/visualTesting.js` & `imageComparer.js`)
+*   **What it does:** Identifies unintended layout or styling changes. It captures a baseline screenshot of a web component. During subsequent runs, it captures a new screenshot and uses `pixelmatch` to do a pixel-by-pixel comparison against the baseline.
+*   **Expected Output:** Returns a composite difference image (highlighting changed pixels in bright red), a `mismatch percentage` (e.g., 2.45%), and a binary `Pass/Fail` flag based on a user-defined threshold tolerance.
 
 ### 5. 🛡️ Security & SAST Testing (`/server/services/securityService.js`)
-Integrated Static Application Security Testing (SAST) allowing developers to run security validations against target repositories or endpoints to identify vulnerabilities early in the CI/CD pipeline.
+*   **What it does:** Performs Static Application Security Testing (SAST) on provided repositories or source files. It scans for hardcoded secrets, misconfigured headers, SQL injection vulnerabilities, and known CVEs in dependencies.
+*   **Expected Output:** A comprehensive security audit report detailing `Vulnerability Type`, `Severity Level` (Critical, High, Medium, Low), `File/Line Number`, and `Remediation Recommendations`.
 
-### 6. ⏱️ Performance & Uptime Monitoring (`/server/services/webMonitorService.js` & `monitorScheduler.js`)
-A continuous background monitoring system that tracks website uptime, response times, and SSL certificate validity. It alerts the dashboard when a service degrades. Load testing is orchestrated via **k6**.
+### 6. ⏱️ Performance & Uptime Monitoring (`/server/services/webMonitorService.js`, `monitorScheduler.js`, & `k6Runner.js`)
+*   **What it does:** 
+    *   **Uptime:** Uses `Node-Cron` to ping predefined URLs at set intervals to ensure they are returning 2xx status codes and valid SSL certificates.
+    *   **Load Testing:** Triggers `k6` scripts to simulate concurrent Virtual Users (VUs) hitting an endpoint to test server scalability under stress.
+*   **Expected Output:** Real-time dashboard charts showing `Response Times (ms)`, `Uptime Percentage`, `SSL Expiry Days`, and for load tests, `Requests Per Second (RPS)` and `P95/P99 Latency`.
 
-### 7. 🗂️ Test Management & Reporting (`/server/routes/testcases.js` & `reports.js`)
-Manage comprehensive Test Cases, Projects, and Requirements. Map test runs to specific requirements to ensure full coverage. Export rich execution reports natively to **PDF** and **Excel**.
+### 7. 🗂️ Test Management, Reporting, & Exporting (`/server/routes/testcases.js`, `reports.js`, `pdfGenerator.js`)
+*   **What it does:** Acts as a centralized Test Case Management System (TCMS). Users can group tests into Projects, map them to Requirements, and track historical pass/fail rates. The export module uses `PDFKit` and `ExcelJS` to compile this data.
+*   **Expected Output:** Downloadable, highly formatted `.pdf` or `.xlsx` files containing executive summaries, pie charts of test statuses, and detailed tabular data of every executed test run for stakeholder review.
 
 ---
 
@@ -114,13 +123,3 @@ Manage comprehensive Test Cases, Projects, and Requirements. Map test runs to sp
 *   **Sanitization:** All database inputs are aggressively parameterized, nullifying SQL injection risks.
 *   **Rate Limiting:** Prevents brute-force API attacks by strictly throttling requests.
 *   **Secure Headers:** `Helmet` obscures stack traces and enforces strong HTTP policies.
-
----
-
-## 💡 Future Enhancements
-*   [ ] Kubernetes & Docker Swarm orchestration templates for scaling Selenium Grid nodes.
-*   [ ] Direct integration with Jira & Slack for real-time defect tracking and notifications.
-*   [ ] Advanced AI self-healing mechanisms for brittle UI tests.
-
-## 📄 License
-This project is licensed under the ISC License.
