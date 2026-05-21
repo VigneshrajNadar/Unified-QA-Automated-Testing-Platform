@@ -18,8 +18,9 @@ function checkK6Availability() {
                 K6_PATH = 'k6';
                 return resolve(true);
             }
-            // 2. Try common Windows paths
+            // 2. Try common Windows and Linux paths
             const commonPaths = [
+                path.join(__dirname, '../k6_bin'),
                 'C:\\Program Files\\k6\\k6.exe',
                 'C:\\Program Files (x86)\\k6\\k6.exe'
             ];

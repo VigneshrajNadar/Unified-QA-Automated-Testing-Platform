@@ -12,11 +12,30 @@ const ajv = new Ajv({ allErrors: true, strict: false });
  * @param {Object|String} responseBody - Response to validate (object or JSON string)
  * @returns {Object} Validation result with isValid and errors
  */
+function cleanMongooseIds(obj) {
+    if (Array.isArray(obj)) {
+        obj.forEach(cleanMongooseIds);
+    } else if (obj !== null && typeof obj === 'object') {
+        if (obj._id) delete obj._id;
+        // Only delete 'id' if it's at a schema root or looks like a mongoose virtual (string of 24 hex)
+        // Actually, just deleting 'id' at the root of schemas is safest to avoid 'id.replace is not a function'
+        if (obj.id && (typeof obj.id !== 'string' || obj.id.length === 24)) delete obj.id;
+        
+        for (const key in obj) {
+            if (typeof obj[key] === 'object') {
+                cleanMongooseIds(obj[key]);
+            }
+        }
+    }
+}
+
 function validateSchema(schema, responseBody) {
     try {
-        // Parse if strings
-        const schemaObj = typeof schema === 'string' ? JSON.parse(schema) : schema;
+        // Parse if strings, and make sure it's a plain object to avoid Mongoose virtuals
+        const schemaObj = typeof schema === 'string' ? JSON.parse(schema) : JSON.parse(JSON.stringify(schema));
         const dataObj = typeof responseBody === 'string' ? JSON.parse(responseBody) : responseBody;
+
+        cleanMongooseIds(schemaObj);
 
         // Compile schema
         const validate = ajv.compile(schemaObj);
