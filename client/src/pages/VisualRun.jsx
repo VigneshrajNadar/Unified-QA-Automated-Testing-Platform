@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Play, Plus, X, Camera, Settings, History, CheckCircle2, AlertCircle, Maximize, Smartphone, Monitor, ShieldCheck, Search, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Play, Plus, X, Camera, Settings, History, CheckCircle2, AlertCircle, Maximize, Smartphone, Monitor, ShieldCheck, Search, Image as ImageIcon, Globe } from 'lucide-react';
 import api from '../api';
 
 function VisualRun() {
