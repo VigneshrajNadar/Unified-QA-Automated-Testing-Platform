@@ -10,9 +10,16 @@ const { runTests } = require('../utils/testRunner');
 
 const router = express.Router();
 
+const fs = require('fs');
+
 // Configure Multer for Zip Uploads
+const tempUploadDir = path.join(__dirname, '../../temp_uploads');
+if (!fs.existsSync(tempUploadDir)) {
+    fs.mkdirSync(tempUploadDir, { recursive: true });
+}
+
 const upload = multer({
-    dest: path.join(__dirname, '../../temp_uploads'),
+    dest: tempUploadDir,
     limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
 });
 
