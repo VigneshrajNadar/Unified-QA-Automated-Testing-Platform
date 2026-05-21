@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-const SECRET_KEY = process.env.SECRET_KEY || 'qa-tool-secret-key-2024';
+const SECRET_KEY = process.env.JWT_SECRET || process.env.SECRET_KEY || 'qa-tool-secret-key-2024';
 
 const router = express.Router();
 
