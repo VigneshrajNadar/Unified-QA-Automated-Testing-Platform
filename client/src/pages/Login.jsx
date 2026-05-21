@@ -1,224 +1,169 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Link, useNavigate } from 'react-router-dom';
+import { ShieldCheck, Mail, Lock, Eye, EyeOff, AlertCircle, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 
-import AnimatedBackground from '../components/AnimatedBackground';
+export default function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const { login, selectRole, setCurrentUser } = useAuth();
+  const navigate = useNavigate();
 
-const Login = () => {
-    const navigate = useNavigate();
-    const { selectRole } = useAuth();
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
-        setLoading(true);
+    try {
+      const res = await api.post('/auth/login', { email, password });
+      
+      const { token, user } = res.data;
+      
+      // Store token and user info
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      
+      // Update Context
+      setCurrentUser(user);
+      selectRole(user.role.toLowerCase());
 
-        try {
-            const response = await api.post('/auth/login', { email, password });
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Login error:', err);
+      setError(err.response?.data?.message || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-            if (response.data.token) {
-                // Store token and user info
-                localStorage.setItem('token', response.data.token);
-                localStorage.setItem('user', JSON.stringify(response.data.user));
+  return (
+    <div className="min-h-screen bg-[#060B14] flex items-center justify-center px-4 relative overflow-hidden">
+      {/* Background orbs */}
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-cyan-500/8 blur-[160px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-500/6 blur-[140px] rounded-full pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-500/4 blur-[200px] rounded-full pointer-events-none" />
 
-                // Set role in auth context (normalize to lowercase)
-                const userRole = (response.data.user.role || 'admin').toLowerCase().replace(' ', '_');
-                selectRole(userRole);
+      <motion.div
+        initial={{ opacity: 0, y: 30, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="w-full max-w-md relative z-10"
+      >
+        {/* Logo badge */}
+        <div className="flex justify-center mb-8">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+            className="p-4 bg-cyan-500/10 rounded-3xl border border-cyan-500/20 shadow-[0_0_40px_rgba(6,182,212,0.15)]"
+          >
+            <ShieldCheck className="w-10 h-10 text-cyan-400" />
+          </motion.div>
+        </div>
 
-                // Navigate to dashboard
-                navigate('/dashboard');
-            }
-        } catch (err) {
-            setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
-        } finally {
-            setLoading(false);
-        }
-    };
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1, duration: 0.5 }}
+          className="text-center mb-8"
+        >
+          <h1 className="text-4xl font-black text-white tracking-tighter mb-2">
+            Welcome back
+          </h1>
+          <p className="text-slate-400 text-sm font-medium">
+            Sign in to access your QA Platform
+          </p>
+        </motion.div>
 
-    return (
-        <div style={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'var(--bg-body)',
-            position: 'relative',
-            overflow: 'hidden'
-        }}>
-            <AnimatedBackground />
+        {/* Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.5 }}
+          className="bg-[#0D1424]/80 backdrop-blur-xl border border-white/8 rounded-[32px] p-8 shadow-2xl"
+        >
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="flex items-center gap-3 p-4 mb-6 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm"
+              >
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-            {/* Login Card */}
-            <div className="card" style={{
-                position: 'relative',
-                zIndex: 1,
-                maxWidth: '450px',
-                width: '100%',
-                margin: '2rem',
-                padding: '3rem',
-                animation: 'fadeInUp 0.8s ease-out'
-            }}>
-                <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                    <h1 style={{
-                        fontSize: '2.5rem',
-                        fontWeight: '700',
-                        marginBottom: '0.5rem',
-                        background: 'linear-gradient(135deg, var(--primary) 0%, #764ba2 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        backgroundClip: 'text'
-                    }}>
-                        Welcome Back
-                    </h1>
-                    <p style={{ color: 'var(--text-light)', fontSize: '1.1rem' }}>
-                        Sign in to access QA Tool
-                    </p>
-                </div>
-
-                <form onSubmit={handleSubmit}>
-                    <div style={{ marginBottom: '1.5rem' }}>
-                        <label style={{
-                            display: 'block',
-                            marginBottom: '0.5rem',
-                            color: 'var(--text-main)',
-                            fontWeight: '500'
-                        }}>
-                            Email Address
-                        </label>
-                        <input
-                            type="email"
-                            className="input"
-                            placeholder="admin@example.com"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                            style={{ width: '100%' }}
-                        />
-                    </div>
-
-                    <div style={{ marginBottom: '1.5rem' }}>
-                        <label style={{
-                            display: 'block',
-                            marginBottom: '0.5rem',
-                            color: 'var(--text-main)',
-                            fontWeight: '500'
-                        }}>
-                            Password
-                        </label>
-                        <input
-                            type="password"
-                            className="input"
-                            placeholder="Enter your password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            style={{ width: '100%' }}
-                        />
-                    </div>
-
-                    {error && (
-                        <div style={{
-                            padding: '1rem',
-                            marginBottom: '1.5rem',
-                            background: 'rgba(239, 68, 68, 0.1)',
-                            border: '1px solid rgba(239, 68, 68, 0.3)',
-                            borderRadius: '8px',
-                            color: '#ef4444',
-                            fontSize: '0.9rem'
-                        }}>
-                            {error}
-                        </div>
-                    )}
-
-                    <button
-                        type="submit"
-                        className="btn btn-primary"
-                        disabled={loading}
-                        style={{
-                            width: '100%',
-                            marginBottom: '1rem'
-                        }}
-                    >
-                        {loading ? 'Signing in...' : 'Sign In'}
-                    </button>
-
-                    <div style={{
-                        textAlign: 'center',
-                        padding: '1rem',
-                        background: 'rgba(102, 126, 234, 0.05)',
-                        borderRadius: '8px',
-                        fontSize: '0.9rem',
-                        color: 'var(--text-light)'
-                    }}>
-                        <div className="demo-credentials">
-                            <p><strong>Demo Credentials:</strong></p>
-                            <p>Email: <code>admin@example.com</code></p>
-                            <p>Password: <code>admin123</code></p>
-                        </div>
-                    </div>
-                    <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                        <span style={{ color: 'var(--text-light)' }}>New here? </span>
-                        <button
-                            type="button"
-                            onClick={() => navigate('/signup')}
-                            style={{
-                                background: 'none',
-                                border: 'none',
-                                color: 'var(--primary)',
-                                cursor: 'pointer',
-                                fontWeight: '600',
-                                textDecoration: 'underline'
-                            }}
-                        >
-                            Create an account
-                        </button>
-                    </div>
-                </form>
-
-                <div style={{
-                    textAlign: 'center',
-                    marginTop: '2rem',
-                    paddingTop: '1.5rem',
-                    borderTop: '1px solid rgba(255, 255, 255, 0.1)'
-                }}>
-                    <button
-                        onClick={() => navigate('/')}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--primary)',
-                            cursor: 'pointer',
-                            fontSize: '0.95rem',
-                            textDecoration: 'underline'
-                        }}
-                    >
-                        ← Back to Landing Page
-                    </button>
-                </div>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Email */}
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.15em] mb-2">Email</label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  className="w-full pl-11 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-white text-sm font-medium placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 focus:bg-white/8 transition-all duration-200"
+                  placeholder="admin@meghana.com"
+                />
+              </div>
             </div>
 
-            <style>{`
-                @keyframes float {
-                    0%, 100% { transform: translate(0, 0); }
-                    50% { transform: translate(20px, -20px); }
-                }
-                @keyframes fadeInUp {
-                    from {
-                        opacity: 0;
-                        transform: translateY(30px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-            `}</style>
-        </div>
-    );
-};
+            {/* Password */}
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.15em] mb-2">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input
+                  type={showPw ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  className="w-full pl-11 pr-12 py-4 bg-white/5 border border-white/10 rounded-2xl text-white text-sm font-medium placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 focus:bg-white/8 transition-all duration-200"
+                  placeholder="admin123"
+                />
+                <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+                  {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
 
-export default Login;
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-4 bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-black text-sm uppercase tracking-widest rounded-2xl hover:from-cyan-400 hover:to-blue-400 transition-all duration-200 shadow-[0_0_30px_rgba(6,182,212,0.3)] hover:shadow-[0_0_40px_rgba(6,182,212,0.5)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Sign In
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="mt-6 pt-6 border-t border-white/5 text-center">
+            <p className="text-sm text-slate-500">
+              Don't have an account?{' '}
+              <Link to="/signup" className="text-cyan-400 font-bold hover:text-cyan-300 transition-colors">
+                Create one free
+              </Link>
+            </p>
+          </div>
+        </motion.div>
+      </motion.div>
+    </div>
+  );
+}

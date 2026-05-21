@@ -1,1 +1,153 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="13.398" timestamp="2026-03-31T16:21:11.758703+05:30" hostname="vigneshraj"><testcase classname="tests.test_e2e_flow.TestEcommerceFlow" name="test_full_flow" time="13.267" /></testsuite></testsuites>
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="1" failures="0" skipped="0" tests="1" time="16.222" timestamp="2026-05-21T18:30:02.522305+05:30" hostname="vigneshraj"><testcase time="11.207" /><testcase classname="pytest" name="internal" time="0.000"><error message="internal error">Traceback (most recent call last):
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\main.py", line 318, in wrap_session
+    session.exitstatus = doit(config, session) or 0
+                         ~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\main.py", line 372, in _main
+    config.hook.pytest_runtestloop(session=session)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 167, in _multicall
+    raise exception
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 139, in _multicall
+    teardown.throw(exception)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\logging.py", line 801, in pytest_runtestloop
+    return (yield)  # Run all the tests.
+            ^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 139, in _multicall
+    teardown.throw(exception)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\terminal.py", line 707, in pytest_runtestloop
+    result = yield
+             ^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\main.py", line 396, in pytest_runtestloop
+    item.config.hook.pytest_runtest_protocol(item=item, nextitem=nextitem)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 167, in _multicall
+    raise exception
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 139, in _multicall
+    teardown.throw(exception)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\warnings.py", line 89, in pytest_runtest_protocol
+    return (yield)
+            ^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 139, in _multicall
+    teardown.throw(exception)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\assertion\__init__.py", line 192, in pytest_runtest_protocol
+    return (yield)
+            ^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 139, in _multicall
+    teardown.throw(exception)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\unittest.py", line 587, in pytest_runtest_protocol
+    return (yield)
+            ^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 139, in _multicall
+    teardown.throw(exception)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\faulthandler.py", line 102, in pytest_runtest_protocol
+    return (yield)
+            ^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\runner.py", line 118, in pytest_runtest_protocol
+    runtestprotocol(item, nextitem=nextitem)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\runner.py", line 137, in runtestprotocol
+    reports.append(call_and_report(item, "call", log))
+                   ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\runner.py", line 249, in call_and_report
+    report: TestReport = ihook.pytest_runtest_makereport(item=item, call=call)
+                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 167, in _multicall
+    raise exception
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 139, in _multicall
+    teardown.throw(exception)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 43, in run_old_style_hookwrapper
+    teardown.send(result)
+    ~~~~~~~~~~~~~^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pytest_html\plugin.py", line 129, in pytest_runtest_makereport
+    report = outcome.get_result()
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_result.py", line 103, in get_result
+    raise exc.with_traceback(tb)
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 38, in run_old_style_hookwrapper
+    res = yield
+          ^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 139, in _multicall
+    teardown.throw(exception)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\tmpdir.py", line 311, in pytest_runtest_makereport
+    rep = yield
+          ^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 152, in _multicall
+    teardown.send(result)
+    ~~~~~~~~~~~~~^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 43, in run_old_style_hookwrapper
+    teardown.send(result)
+    ~~~~~~~~~~~~~^^^^^^^^
+  File "C:\Users\vigne\Downloads\meghana project\ecommerce-automation\conftest.py", line 26, in pytest_runtest_makereport
+    capture_screenshot(driver, item.name)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\vigne\Downloads\meghana project\ecommerce-automation\utils\result_logger.py", line 16, in capture_screenshot
+    driver.save_screenshot(file_path)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\webdriver.py", line 882, in save_screenshot
+    return self.get_screenshot_as_file(filename)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\webdriver.py", line 859, in get_screenshot_as_file
+    png = self.get_screenshot_as_png()
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\webdriver.py", line 890, in get_screenshot_as_png
+    return b64decode(self.get_screenshot_as_base64().encode("ascii"))
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\webdriver.py", line 900, in get_screenshot_as_base64
+    return self.execute(Command.SCREENSHOT)["value"]
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\webdriver.py", line 432, in execute
+    self.error_handler.check_response(response)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\vigne\AppData\Local\Programs\Python\Python313\Lib\site-packages\selenium\webdriver\remote\errorhandler.py", line 232, in check_response
+    raise exception_class(message, screen, stacktrace)
+selenium.common.exceptions.InvalidSessionIdException: Message: invalid session id; For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#invalidsessionidexception
+Stacktrace:
+	chromedriver!GetHandleVerifier [0x65b593+105d3]
+	chromedriver!GetHandleVerifier [0x65b6c4+10704]
+	chromedriver!(No symbol) [0x461cde]
+	chromedriver!(No symbol) [0x49fb77]
+	chromedriver!(No symbol) [0x4cd636]
+	chromedriver!(No symbol) [0x4c8861]
+	chromedriver!(No symbol) [0x4c8241]
+	chromedriver!(No symbol) [0x43502e]
+	chromedriver!(No symbol) [0x4355ce]
+	chromedriver!(No symbol) [0x435aad]
+	chromedriver!GetHandleVerifier [0x8e3014+298054]
+	chromedriver!GetHandleVerifier [0x8de603+293643]
+	chromedriver!GetHandleVerifier [0x8fea05+2b3a45]
+	chromedriver!GetHandleVerifier [0x6754e8+2a528]
+	chromedriver!GetHandleVerifier [0x67cd1d+31d5d]
+	chromedriver!(No symbol) [0x434ba6]
+	chromedriver!(No symbol) [0x4341e0]
+	chromedriver!GetHandleVerifier [0xa487af+3fd7ef]
+	KERNEL32!BaseThreadInitThunk [0x776b5d49+19]
+	ntdll!RtlInitializeExceptionChain [0x779ed83b+6b]
+	ntdll!RtlGetAppContainerNamedObjectPath [0x779ed7c1+231]</error></testcase></testsuite></testsuites>

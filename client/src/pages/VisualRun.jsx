@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { ArrowLeft, Play, Plus, X, Camera, Settings, History, CheckCircle2, AlertCircle, Maximize, Smartphone, Monitor, ShieldCheck, Search, Image as ImageIcon } from 'lucide-react';
 import api from '../api';
-import './VisualRun.css';
 
 function VisualRun() {
     const { projectId } = useParams();
@@ -29,7 +30,6 @@ function VisualRun() {
         try {
             const response = await api.get(`/visual/project/${projectId}`);
             setProject(response.data);
-            // Set base URL as first URL
             if (response.data.base_url) {
                 setRunConfig(prev => ({ ...prev, urls: [response.data.base_url] }));
             }
@@ -104,192 +104,215 @@ function VisualRun() {
 
     const getRunStatusBadge = (run) => {
         if (run.status === 'running') {
-            return <span className="badge badge-warning">Running</span>;
+            return <span className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg border bg-amber-500/10 border-amber-500/20 text-amber-400 flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"/> Running</span>;
         } else if (run.failed > 0) {
-            return <span className="badge badge-danger">{run.failed} Failed</span>;
+            return <span className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg border bg-rose-500/10 border-rose-500/20 text-rose-400 flex items-center gap-1.5"><AlertCircle className="w-3 h-3"/> {run.failed} Failed</span>;
         } else if (run.passed > 0) {
-            return <span className="badge badge-success">{run.passed} Passed</span>;
+            return <span className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg border bg-emerald-500/10 border-emerald-500/20 text-emerald-400 flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3"/> {run.passed} Passed</span>;
         } else {
-            return <span className="badge badge-secondary">Completed</span>;
+            return <span className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg border bg-slate-500/10 border-slate-500/20 text-slate-400">Completed</span>;
         }
     };
 
-    if (loading) {
-        return <div className="loading">Loading project...</div>;
-    }
+    if (loading) return (
+        <div className="flex justify-center items-center h-64">
+            <div className="w-8 h-8 border-4 border-fuchsia-500/30 border-t-fuchsia-500 rounded-full animate-spin" />
+        </div>
+    );
 
-    if (!project) {
-        return <div className="error">Project not found</div>;
-    }
+    if (!project) return (
+        <div className="flex flex-col items-center justify-center h-64 bg-[#0B0F19]/50 border border-white/10 rounded-3xl">
+            <AlertCircle className="w-10 h-10 text-rose-400 mb-4" />
+            <h2 className="text-xl font-bold text-white">Project Not Found</h2>
+        </div>
+    );
 
     return (
-        <div className="visual-run-page">
-            <div className="page-header">
+        <div className="space-y-6">
+            {/* Header */}
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4 bg-[#0B0F19]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-xl">
+                <button 
+                    onClick={() => navigate('/visual-testing')}
+                    className="p-2 bg-white/5 hover:bg-white/10 text-white rounded-xl transition-colors border border-white/5"
+                >
+                    <ArrowLeft className="w-5 h-5" />
+                </button>
                 <div>
-                    <button className="back-btn" onClick={() => navigate('/visual-testing')}>
-                        ← Back
-                    </button>
-                    <h1>{project.name || 'Visual Test Project'}</h1>
-                    <p className="project-url">{project.base_url}</p>
+                    <h1 className="text-2xl font-black text-white flex items-center gap-3">
+                        {project.name || 'Visual Test Project'}
+                    </h1>
+                    <p className="text-sm text-fuchsia-400 mt-1 font-mono">{project.base_url}</p>
                 </div>
-            </div>
+            </motion.div>
 
-            <div className="content-grid">
-                {/* Run Configuration */}
-                <div className="run-config-section">
-                    <h2>Run Configuration</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                {/* RUN CONFIGURATION */}
+                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="bg-[#0B0F19]/80 backdrop-blur-xl border border-white/10 rounded-3xl shadow-xl overflow-hidden flex flex-col relative">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-fuchsia-500/10 blur-[50px] rounded-full -mr-20 -mt-20 pointer-events-none" />
+                    
+                    <div className="p-6 border-b border-white/10 bg-white/5 shrink-0 flex items-center gap-3 z-10">
+                        <Settings className="w-5 h-5 text-fuchsia-400" />
+                        <h2 className="text-lg font-bold text-white">Run Configuration</h2>
+                    </div>
 
-                    <form onSubmit={handleRunTest}>
-                        <div className="form-group">
-                            <label>Run Type</label>
-                            <div className="radio-group">
-                                <label className="radio-label">
-                                    <input
-                                        type="radio"
-                                        value="baseline"
-                                        checked={runConfig.runType === 'baseline'}
-                                        onChange={e => setRunConfig({ ...runConfig, runType: e.target.value })}
-                                    />
-                                    <span>Baseline (Create reference)</span>
+                    <form onSubmit={handleRunTest} className="p-6 space-y-6 z-10">
+                        {/* Run Type Selection */}
+                        <div>
+                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Run Type</label>
+                            <div className="grid grid-cols-2 gap-4">
+                                <label className={`flex items-start gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${runConfig.runType === 'baseline' ? 'bg-fuchsia-500/10 border-fuchsia-500/30 shadow-[0_0_15px_rgba(192,38,211,0.15)]' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}>
+                                    <input type="radio" value="baseline" checked={runConfig.runType === 'baseline'} onChange={e => setRunConfig({ ...runConfig, runType: e.target.value })} className="mt-1" />
+                                    <div>
+                                        <div className={`font-bold ${runConfig.runType === 'baseline' ? 'text-fuchsia-400' : 'text-white'}`}>Baseline</div>
+                                        <div className="text-xs text-slate-400 mt-1">Capture reference screenshots</div>
+                                    </div>
                                 </label>
-                                <label className="radio-label">
-                                    <input
-                                        type="radio"
-                                        value="comparison"
-                                        checked={runConfig.runType === 'comparison'}
-                                        onChange={e => setRunConfig({ ...runConfig, runType: e.target.value })}
-                                    />
-                                    <span>Comparison (Detect changes)</span>
+                                <label className={`flex items-start gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${runConfig.runType === 'comparison' ? 'bg-fuchsia-500/10 border-fuchsia-500/30 shadow-[0_0_15px_rgba(192,38,211,0.15)]' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}>
+                                    <input type="radio" value="comparison" checked={runConfig.runType === 'comparison'} onChange={e => setRunConfig({ ...runConfig, runType: e.target.value })} className="mt-1" />
+                                    <div>
+                                        <div className={`font-bold ${runConfig.runType === 'comparison' ? 'text-fuchsia-400' : 'text-white'}`}>Comparison</div>
+                                        <div className="text-xs text-slate-400 mt-1">Detect pixel changes against baseline</div>
+                                    </div>
                                 </label>
                             </div>
                         </div>
 
-                        <div className="form-group">
-                            <label>URLs to Test</label>
-                            {runConfig.urls.map((url, index) => (
-                                <div key={index} className="url-input-group">
-                                    <input
-                                        type="url"
-                                        placeholder="https://example.com/page"
-                                        value={url}
-                                        onChange={e => handleUrlChange(index, e.target.value)}
-                                    />
-                                    {runConfig.urls.length > 1 && (
-                                        <button
-                                            type="button"
-                                            className="btn-icon-danger"
-                                            onClick={() => handleRemoveUrl(index)}
-                                        >
-                                            ×
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
-                            <button
-                                type="button"
-                                className="btn-secondary btn-small"
-                                onClick={handleAddUrl}
-                            >
-                                + Add URL
-                            </button>
-                        </div>
-
-                        <div className="form-group">
-                            <label>Browser</label>
-                            <select
-                                value={runConfig.browser}
-                                onChange={e => setRunConfig({ ...runConfig, browser: e.target.value })}
-                            >
-                                <option value="chrome">Chrome</option>
-                                <option value="firefox">Firefox</option>
-                                <option value="safari">Safari (WebKit)</option>
-                            </select>
-                        </div>
-
-                        <div className="form-group">
-                            <label>Viewport</label>
-                            <select
-                                value={runConfig.viewport}
-                                onChange={e => setRunConfig({ ...runConfig, viewport: e.target.value })}
-                            >
-                                <option value="desktop">Desktop (1920x1080)</option>
-                                <option value="tablet">Tablet (768x1024)</option>
-                                <option value="mobile">Mobile (375x667)</option>
-                            </select>
-                        </div>
-
-                        <button
-                            type="submit"
-                            className="btn-primary btn-large"
-                            disabled={runningTest}
-                        >
-                            {runningTest ? '⏳ Running Test...' : '▶ Run Test'}
-                        </button>
-                    </form>
-                </div>
-
-                {/* Run History */}
-                <div className="run-history-section">
-                    <h2>Run History</h2>
-
-                    {runs.length === 0 ? (
-                        <div className="empty-state-small">
-                            <p>No test runs yet</p>
-                            <small>Run your first test to see results here</small>
-                        </div>
-                    ) : (
-                        <div className="runs-list">
-                            {runs.map(run => (
-                                <div key={run.run_id} className="run-card">
-                                    <div className="run-header">
-                                        <div>
-                                            <span className="run-type-badge">
-                                                {run.run_type === 'baseline' ? '📸 Baseline' : '🔍 Comparison'}
-                                            </span>
-                                            {getRunStatusBadge(run)}
-                                        </div>
-                                        <span className="run-date">
-                                            {new Date(run.created_at).toLocaleString()}
-                                        </span>
-                                    </div>
-
-                                    <div className="run-details">
-                                        <div className="detail-item">
-                                            <span>Browser:</span>
-                                            <strong>{run.browser}</strong>
-                                        </div>
-                                        <div className="detail-item">
-                                            <span>Viewport:</span>
-                                            <strong>{run.viewport}</strong>
-                                        </div>
-                                        <div className="detail-item">
-                                            <span>Screenshots:</span>
-                                            <strong>{run.total_screenshots || 0}</strong>
-                                        </div>
-                                        {run.run_type === 'comparison' && run.total_diffs > 0 && (
-                                            <div className="detail-item">
-                                                <span>Results:</span>
-                                                <strong>
-                                                    <span className="text-success">{run.passed || 0} ✓</span>
-                                                    {' / '}
-                                                    <span className="text-danger">{run.failed || 0} ✗</span>
-                                                </strong>
-                                            </div>
+                        {/* URLs */}
+                        <div>
+                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">URLs to Test</label>
+                            <div className="space-y-3">
+                                {runConfig.urls.map((url, index) => (
+                                    <div key={index} className="flex gap-2">
+                                        <input
+                                            type="url"
+                                            placeholder="https://example.com/page"
+                                            value={url}
+                                            onChange={e => handleUrlChange(index, e.target.value)}
+                                            className="flex-1 px-4 py-3 bg-[#0D1424] border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-fuchsia-500/50 transition-colors"
+                                        />
+                                        {runConfig.urls.length > 1 && (
+                                            <button type="button" onClick={() => handleRemoveUrl(index)} className="px-4 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl transition-colors shrink-0">
+                                                <X className="w-5 h-5" />
+                                            </button>
                                         )}
                                     </div>
-
-                                    {/* Always show view results button */}
-                                    <button
-                                        className="btn-secondary btn-small"
-                                        onClick={() => handleViewDiffs(run.run_id)}
-                                    >
-                                        📊 View Results →
-                                    </button>
-                                </div>
-                            ))}
+                                ))}
+                                <button type="button" onClick={handleAddUrl} className="flex items-center gap-2 text-xs font-bold text-fuchsia-400 hover:text-fuchsia-300 transition-colors uppercase tracking-widest mt-2">
+                                    <Plus className="w-3.5 h-3.5" /> Add Another URL
+                                </button>
+                            </div>
                         </div>
-                    )}
-                </div>
+
+                        {/* Browser & Viewport */}
+                        <div className="grid grid-cols-2 gap-5">
+                            <div>
+                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Browser</label>
+                                <div className="relative">
+                                    <select value={runConfig.browser} onChange={e => setRunConfig({ ...runConfig, browser: e.target.value })} className="w-full pl-10 pr-4 py-3 bg-[#0D1424] border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-fuchsia-500/50 transition-colors appearance-none">
+                                        <option value="chrome" className="bg-[#0D1424]">Chrome</option>
+                                        <option value="firefox" className="bg-[#0D1424]">Firefox</option>
+                                        <option value="safari" className="bg-[#0D1424]">Safari (WebKit)</option>
+                                    </select>
+                                    <Globe className="w-4 h-4 text-slate-400 absolute left-4 top-3.5 pointer-events-none" />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Viewport</label>
+                                <div className="relative">
+                                    <select value={runConfig.viewport} onChange={e => setRunConfig({ ...runConfig, viewport: e.target.value })} className="w-full pl-10 pr-4 py-3 bg-[#0D1424] border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-fuchsia-500/50 transition-colors appearance-none">
+                                        <option value="desktop" className="bg-[#0D1424]">Desktop (1920x1080)</option>
+                                        <option value="tablet" className="bg-[#0D1424]">Tablet (768x1024)</option>
+                                        <option value="mobile" className="bg-[#0D1424]">Mobile (375x667)</option>
+                                    </select>
+                                    {runConfig.viewport === 'mobile' ? <Smartphone className="w-4 h-4 text-slate-400 absolute left-4 top-3.5 pointer-events-none" /> : runConfig.viewport === 'tablet' ? <Maximize className="w-4 h-4 text-slate-400 absolute left-4 top-3.5 pointer-events-none" /> : <Monitor className="w-4 h-4 text-slate-400 absolute left-4 top-3.5 pointer-events-none" />}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="pt-6 border-t border-white/10 mt-6">
+                            <button 
+                                type="submit" 
+                                disabled={runningTest} 
+                                className="w-full flex justify-center items-center gap-2 px-6 py-4 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white font-black rounded-xl transition-all shadow-[0_0_15px_rgba(192,38,211,0.3)] hover:shadow-[0_0_25px_rgba(192,38,211,0.5)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
+                            >
+                                {runningTest ? (
+                                    <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Running Test...</>
+                                ) : (
+                                    <><Play className="w-5 h-5" /> Run Visual Test</>
+                                )}
+                            </button>
+                        </div>
+                    </form>
+                </motion.div>
+
+                {/* RUN HISTORY */}
+                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="bg-[#0B0F19]/80 backdrop-blur-xl border border-white/10 rounded-3xl shadow-xl flex flex-col h-[calc(100vh-220px)] lg:h-auto min-h-[600px]">
+                    <div className="p-6 border-b border-white/10 bg-white/5 shrink-0 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <History className="w-5 h-5 text-blue-400" />
+                            <h2 className="text-lg font-bold text-white">Run History</h2>
+                        </div>
+                        {runs.length > 0 && <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-black">{runs.length} Runs</span>}
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                        {runs.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-full text-center opacity-60">
+                                <ImageIcon className="w-16 h-16 text-slate-500 mb-4" />
+                                <h3 className="text-lg font-bold text-white mb-1">No Runs Yet</h3>
+                                <p className="text-sm text-slate-400">Configure and execute your first visual test on the left.</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {runs.map((run, idx) => (
+                                    <motion.div key={run.run_id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} className="bg-white/5 border border-white/10 hover:border-white/20 rounded-2xl p-5 transition-all group">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="flex items-center gap-3">
+                                                <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg border ${run.run_type === 'baseline' ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-400'} flex items-center gap-1.5`}>
+                                                    {run.run_type === 'baseline' ? <Camera className="w-3 h-3" /> : <Search className="w-3 h-3" />}
+                                                    {run.run_type}
+                                                </span>
+                                                {getRunStatusBadge(run)}
+                                            </div>
+                                            <span className="text-xs font-medium text-slate-500">{new Date(run.created_at).toLocaleString()}</span>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                                            <div className="bg-[#0D1424] rounded-xl p-3 border border-white/5">
+                                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Browser</p>
+                                                <p className="text-sm text-slate-300 font-medium capitalize flex items-center gap-1.5"><Globe className="w-3.5 h-3.5 text-slate-400" /> {run.browser}</p>
+                                            </div>
+                                            <div className="bg-[#0D1424] rounded-xl p-3 border border-white/5">
+                                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Viewport</p>
+                                                <p className="text-sm text-slate-300 font-medium capitalize flex items-center gap-1.5"><Monitor className="w-3.5 h-3.5 text-slate-400" /> {run.viewport}</p>
+                                            </div>
+                                            <div className="bg-[#0D1424] rounded-xl p-3 border border-white/5">
+                                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Captured</p>
+                                                <p className="text-sm text-slate-300 font-medium flex items-center gap-1.5"><ImageIcon className="w-3.5 h-3.5 text-slate-400" /> {run.total_screenshots || 0}</p>
+                                            </div>
+                                            
+                                            {run.run_type === 'comparison' && run.total_diffs > 0 && (
+                                                <div className="bg-[#0D1424] rounded-xl p-3 border border-white/5">
+                                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Result</p>
+                                                    <p className="text-sm font-medium flex items-center gap-1">
+                                                        <span className="text-emerald-400">{run.passed || 0} ✓</span>
+                                                        <span className="text-slate-600">/</span>
+                                                        <span className="text-rose-400">{run.failed || 0} ✗</span>
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <button onClick={() => handleViewDiffs(run.run_id)} className="w-full flex justify-center items-center gap-2 px-4 py-3 bg-white/5 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-colors border border-white/5">
+                                            View Results <ArrowLeft className="w-4 h-4 rotate-180" />
+                                        </button>
+                                    </motion.div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </motion.div>
             </div>
         </div>
     );

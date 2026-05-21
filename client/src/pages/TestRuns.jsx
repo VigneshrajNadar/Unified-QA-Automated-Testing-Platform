@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import api from '../api';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { PlaySquare, FolderKanban, Plus, X, Layers, Activity, Search, AlertCircle, Play } from 'lucide-react';
+import api from '../api';
 
 const TestRuns = () => {
     const [activeTab, setActiveTab] = useState('runs'); // 'runs' or 'suites'
@@ -41,7 +43,7 @@ const TestRuns = () => {
     useEffect(() => {
         if (selectedProject) {
             fetchSuites();
-            fetchRuns(); // In a real app, runs might be fetched per project too
+            fetchRuns(); 
             fetchTestCases();
         }
     }, [selectedProject]);
@@ -57,16 +59,6 @@ const TestRuns = () => {
     };
 
     const fetchRuns = async () => {
-        // Ideally filter by project, but for now fetch all or filter client side if API doesn't support
-        // My API for runs doesn't support filtering by project yet, let's just fetch all? 
-        // Wait, I didn't implement GET /api/runs (list all). I implemented GET /api/runs/:id.
-        // I need to implement GET /api/runs in backend or just use what I have.
-        // Let's implement a simple list fetch in backend or just skip listing for now?
-        // No, I need to list runs. I'll add GET /api/runs to backend quickly or just mock it?
-        // I'll assume I can add it or I'll just use the suites for now.
-        // Actually, I missed GET /api/runs in backend. I only did GET /api/runs/:id.
-        // I will add it to backend in a separate tool call or just fix it now.
-        // Let's fix backend first? No, let's write frontend assuming it exists, then fix backend.
         try {
             const res = await api.get(`/runs?project_id=${selectedProject}`);
             setRuns(res.data);
@@ -94,7 +86,6 @@ const TestRuns = () => {
             setSelectedTestCases([]);
             setShowSuiteForm(false);
             fetchSuites();
-            alert('Suite created');
         } catch (err) {
             alert('Failed to create suite');
         }
@@ -112,7 +103,7 @@ const TestRuns = () => {
             setSelectedSuite('');
             setShowRunForm(false);
             fetchRuns();
-            alert('Run created');
+            setActiveTab('runs');
         } catch (err) {
             alert('Failed to create run');
         }
@@ -139,125 +130,102 @@ const TestRuns = () => {
                 test_types: []
             });
 
-            // Refresh test cases list
             await fetchTestCases();
-
-            // Auto-select the newly created test case
             if (response.data.testCaseId) {
                 setSelectedTestCases([...selectedTestCases, response.data.testCaseId]);
             }
 
-            // Reset form and close modal
-            setCustomTestCase({
-                title: '',
-                description: '',
-                steps: '',
-                expected_result: '',
-                priority: 'Medium'
-            });
+            setCustomTestCase({ title: '', description: '', steps: '', expected_result: '', priority: 'Medium' });
             setShowCustomTestCaseForm(false);
-            alert('Custom test case created and added to suite!');
         } catch (err) {
             alert('Failed to create custom test case');
         }
     };
 
     return (
-        <div>
-            <h1>Test Management</h1>
+        <div className="space-y-6">
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-between items-end">
+                <div>
+                    <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                        <PlaySquare className="w-8 h-8 text-cyan-400" /> Test Execution
+                    </h1>
+                    <p className="text-sm text-slate-400 mt-1">Group test cases into suites and execute test runs.</p>
+                </div>
+            </motion.div>
 
-            <div style={{ marginBottom: '2rem' }}>
-                <label>Select Project: </label>
-                <select className="input" style={{ width: 'auto', display: 'inline-block' }} value={selectedProject} onChange={e => setSelectedProject(e.target.value)}>
-                    <option value="">-- Select Project --</option>
-                    {projects.map(p => <option key={p.project_id} value={p.project_id}>{p.name}</option>)}
-                </select>
-            </div>
+            {/* Project Selector Bar */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-[#0B0F19]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-lg flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                    <FolderKanban className="w-5 h-5 text-blue-400" />
+                    <select
+                        value={selectedProject}
+                        onChange={e => setSelectedProject(e.target.value)}
+                        className="w-full md:w-80 px-4 py-2.5 bg-[#0D1424] border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-500/50 transition-colors appearance-none"
+                    >
+                        <option value="" className="bg-[#0D1424]">-- Select a Project to Manage Runs --</option>
+                        {projects.map(p => <option key={p.project_id} value={p.project_id} className="bg-[#0D1424]">{p.name}</option>)}
+                    </select>
+                </div>
+
+                {selectedProject && (
+                    <div className="flex p-1 bg-[#0D1424] border border-white/10 rounded-xl w-full md:w-auto">
+                        <button 
+                            onClick={() => setActiveTab('runs')} 
+                            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'runs' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.1)]' : 'text-slate-400 hover:text-white border border-transparent'}`}
+                        >
+                            <Activity className="w-4 h-4" /> Test Runs
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('suites')} 
+                            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'suites' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.1)]' : 'text-slate-400 hover:text-white border border-transparent'}`}
+                        >
+                            <Layers className="w-4 h-4" /> Test Suites
+                        </button>
+                    </div>
+                )}
+            </motion.div>
+
+            {!selectedProject && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center p-12 border border-dashed border-white/10 rounded-3xl bg-[#0B0F19]/50 mt-8">
+                    <div className="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mb-4">
+                        <FolderKanban className="w-8 h-8 text-blue-400" />
+                    </div>
+                    <h3 className="text-xl font-bold text-white mb-2">Select a Project</h3>
+                    <p className="text-slate-400 text-sm text-center max-w-md">Please select a project from the dropdown above to view and manage its test suites and execution runs.</p>
+                </motion.div>
+            )}
 
             {selectedProject && (
-                <>
-                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-                        <button className={`btn ${activeTab === 'runs' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('runs')} style={{ width: 'auto' }}>Test Runs</button>
-                        <button className={`btn ${activeTab === 'suites' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('suites')} style={{ width: 'auto' }}>Test Suites</button>
-                    </div>
-
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                    
+                    {/* TEST SUITES TAB */}
                     {activeTab === 'suites' && (
-                        <div>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
-                                <button className="btn btn-primary" onClick={() => setShowSuiteForm(true)} style={{ width: 'auto' }}>
-                                    + New Test Suite
+                        <div className="space-y-4">
+                            <div className="flex justify-end">
+                                <button onClick={() => setShowSuiteForm(true)} className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-sm rounded-xl transition-colors">
+                                    <Plus className="w-4 h-4" /> New Test Suite
                                 </button>
                             </div>
 
-                            {showSuiteForm && (
-                                <div style={{
-                                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                                    background: 'rgba(0, 0, 0, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    zIndex: 1000, backdropFilter: 'blur(5px)'
-                                }} onClick={() => setShowSuiteForm(false)}>
-                                    <div className="card" style={{ width: '90%', maxWidth: '600px', margin: '2rem', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-                                        <h3 style={{ marginBottom: '1.5rem' }}>Create Test Suite</h3>
-                                        <form onSubmit={handleCreateSuite}>
-                                            <div style={{ marginBottom: '1rem' }}>
-                                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Suite Name</label>
-                                                <input className="input" placeholder="Suite Name" value={suiteName} onChange={e => setSuiteName(e.target.value)} required />
-                                            </div>
-                                            <div style={{ marginBottom: '1rem' }}>
-                                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Description</label>
-                                                <textarea className="input" placeholder="Description" value={suiteDesc} onChange={e => setSuiteDesc(e.target.value)} rows={3} />
-                                            </div>
-
-                                            <div style={{ marginBottom: '1.5rem' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                                    <p style={{ fontWeight: 'bold', margin: 0 }}>Select Test Cases:</p>
-                                                    <button
-                                                        type="button"
-                                                        className="btn"
-                                                        style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem', background: 'var(--primary)', color: 'white', width: 'auto' }}
-                                                        onClick={() => setShowCustomTestCaseForm(true)}
-                                                    >
-                                                        + Create Custom Test Case
-                                                    </button>
-                                                </div>
-                                                <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid var(--border)', padding: '0.5rem', borderRadius: '8px', background: 'rgba(0,0,0,0.2)' }}>
-                                                    {availableTestCases.length === 0 ? (
-                                                        <p style={{ color: 'var(--text-dim)', fontSize: '0.9rem', margin: '0.5rem' }}>No test cases available.</p>
-                                                    ) : (
-                                                        availableTestCases.map(tc => (
-                                                            <div key={tc.test_case_id} style={{ marginBottom: '0.5rem' }}>
-                                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={selectedTestCases.includes(tc.test_case_id)}
-                                                                        onChange={() => toggleTestCase(tc.test_case_id)}
-                                                                        style={{ width: '1.2rem', height: '1.2rem' }}
-                                                                    />
-                                                                    <span>{tc.title}</span>
-                                                                </label>
-                                                            </div>
-                                                        ))
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                                                <button type="button" className="btn btn-secondary" onClick={() => setShowSuiteForm(false)} style={{ width: 'auto' }}>Cancel</button>
-                                                <button type="submit" className="btn btn-primary" style={{ width: 'auto' }}>Create Suite</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div style={{ display: 'grid', gap: '1rem', marginTop: '1rem' }}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {suites.length === 0 ? (
-                                    <div className="card" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-dim)' }}>
-                                        No test suites found. Create one to get started.
+                                    <div className="col-span-full py-12 border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center bg-white/5">
+                                        <Layers className="w-8 h-8 text-slate-500 mb-3" />
+                                        <p className="text-sm font-medium text-slate-400">No test suites found for this project.</p>
                                     </div>
                                 ) : (
                                     suites.map(s => (
-                                        <div key={s.test_suite_id} className="card">
-                                            <h4>{s.name}</h4>
-                                            <p style={{ color: 'var(--text-light)', marginTop: '0.5rem' }}>{s.description}</p>
+                                        <div key={s.test_suite_id} className="bg-[#0B0F19]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl group hover:border-blue-500/30 transition-colors relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 blur-[30px] rounded-full -mr-10 -mt-10 pointer-events-none group-hover:bg-blue-500/10 transition-colors" />
+                                            <div className="flex items-start gap-3 mb-3 relative z-10">
+                                                <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 shrink-0">
+                                                    <Layers className="w-5 h-5 text-blue-400" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-lg font-bold text-white leading-tight">{s.name}</h4>
+                                                </div>
+                                            </div>
+                                            <p className="text-sm text-slate-400 line-clamp-3 relative z-10">{s.description || 'No description'}</p>
                                         </div>
                                     ))
                                 )}
@@ -265,160 +233,175 @@ const TestRuns = () => {
                         </div>
                     )}
 
+                    {/* TEST RUNS TAB */}
                     {activeTab === 'runs' && (
-                        <div>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
-                                <button className="btn btn-primary" onClick={() => setShowRunForm(true)} style={{ width: 'auto' }}>
-                                    + Start New Run
+                        <div className="space-y-4">
+                            <div className="flex justify-end">
+                                <button onClick={() => setShowRunForm(true)} className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-[#060B14] font-black text-sm rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:shadow-[0_0_25px_rgba(6,182,212,0.5)]">
+                                    <Play className="w-4 h-4" fill="currentColor" /> Start New Run
                                 </button>
                             </div>
 
-                            {showRunForm && (
-                                <div style={{
-                                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                                    background: 'rgba(0, 0, 0, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    zIndex: 1000, backdropFilter: 'blur(5px)'
-                                }} onClick={() => setShowRunForm(false)}>
-                                    <div className="card" style={{ width: '100%', maxWidth: '500px', margin: '2rem' }} onClick={e => e.stopPropagation()}>
-                                        <h3 style={{ marginBottom: '1.5rem' }}>Start New Run</h3>
-                                        <form onSubmit={handleCreateRun}>
-                                            <div style={{ marginBottom: '1rem' }}>
-                                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Run Name</label>
-                                                <input className="input" placeholder="e.g. Release 1.0 Regression" value={runName} onChange={e => setRunName(e.target.value)} required />
-                                            </div>
-                                            <div style={{ marginBottom: '1.5rem' }}>
-                                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Test Suite</label>
-                                                <select className="input" value={selectedSuite} onChange={e => setSelectedSuite(e.target.value)} required>
-                                                    <option value="">Select Test Suite</option>
-                                                    {suites.map(s => <option key={s.test_suite_id} value={s.test_suite_id}>{s.name}</option>)}
-                                                </select>
-                                            </div>
-                                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                                                <button type="button" className="btn btn-secondary" onClick={() => setShowRunForm(false)} style={{ width: 'auto' }}>Cancel</button>
-                                                <button type="submit" className="btn btn-primary" style={{ width: 'auto' }}>Start Run</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div style={{ display: 'grid', gap: '1rem', marginTop: '1rem' }}>
+                            <div className="grid grid-cols-1 gap-4">
                                 {runs.length === 0 ? (
-                                    <div className="card" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-dim)' }}>
-                                        No test runs executed yet. Start a new one!
+                                    <div className="py-12 border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center bg-white/5">
+                                        <Activity className="w-8 h-8 text-slate-500 mb-3" />
+                                        <p className="text-sm font-medium text-slate-400">No test runs executed yet.</p>
                                     </div>
                                 ) : (
                                     runs.map(r => (
-                                        <div key={r.test_run_id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div>
-                                                <h4>{r.name}</h4>
-                                                <p style={{ fontSize: '0.9rem', color: 'var(--text-light)' }}>Executed by: {r.executed_by_name || 'Unknown'}</p>
+                                        <div key={r.test_run_id} className="bg-[#0B0F19]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-white/[0.02] transition-colors">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0">
+                                                    <PlaySquare className="w-6 h-6 text-cyan-400" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-lg font-bold text-white mb-1">{r.name}</h4>
+                                                    <div className="flex items-center gap-3 text-xs text-slate-500 font-medium">
+                                                        <span className="flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" /> Executed by {r.executed_by_name || 'Unknown'}</span>
+                                                        <span>•</span>
+                                                        <span>{new Date(r.created_at).toLocaleString()}</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <Link to={`/execute-run/${r.test_run_id}`} className="btn btn-primary" style={{ width: 'auto' }}>Execute / View</Link>
+                                            <Link to={`/execute-run/${r.test_run_id}`} className="w-full md:w-auto px-6 py-2.5 bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold text-sm rounded-xl transition-colors text-center">
+                                                Execute / View Results
+                                            </Link>
                                         </div>
                                     ))
                                 )}
                             </div>
                         </div>
                     )}
-                </>
+                </motion.div>
             )}
 
-            {/* Custom Test Case Modal */}
-            {showCustomTestCaseForm && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'rgba(0, 0, 0, 0.7)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000,
-                    padding: '2rem'
-                }}>
-                    <div className="card" style={{
-                        maxWidth: '600px',
-                        width: '100%',
-                        maxHeight: '90vh',
-                        overflowY: 'auto',
-                        position: 'relative'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                            <h3 style={{ margin: 0 }}>Create Custom Test Case</h3>
-                            <button
-                                type="button"
-                                onClick={() => setShowCustomTestCaseForm(false)}
-                                style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    fontSize: '1.5rem',
-                                    cursor: 'pointer',
-                                    color: 'var(--text)'
-                                }}
-                            >
-                                ×
-                            </button>
-                        </div>
-                        <form onSubmit={handleCreateCustomTestCase}>
-                            <input
-                                className="input"
-                                placeholder="Test Case Title *"
-                                value={customTestCase.title}
-                                onChange={(e) => setCustomTestCase({ ...customTestCase, title: e.target.value })}
-                                required
-                            />
-                            <textarea
-                                className="input"
-                                placeholder="Description"
-                                value={customTestCase.description}
-                                onChange={(e) => setCustomTestCase({ ...customTestCase, description: e.target.value })}
-                                rows={3}
-                            />
-                            <textarea
-                                className="input"
-                                placeholder="Steps (one per line)"
-                                value={customTestCase.steps}
-                                onChange={(e) => setCustomTestCase({ ...customTestCase, steps: e.target.value })}
-                                rows={4}
-                            />
-                            <textarea
-                                className="input"
-                                placeholder="Expected Result"
-                                value={customTestCase.expected_result}
-                                onChange={(e) => setCustomTestCase({ ...customTestCase, expected_result: e.target.value })}
-                                rows={3}
-                            />
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Priority</label>
-                                <select
-                                    className="input"
-                                    value={customTestCase.priority}
-                                    onChange={(e) => setCustomTestCase({ ...customTestCase, priority: e.target.value })}
-                                >
-                                    <option value="High">High</option>
-                                    <option value="Medium">Medium</option>
-                                    <option value="Low">Low</option>
-                                </select>
+            {/* SUITE CREATION MODAL */}
+            <AnimatePresence>
+                {showSuiteForm && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowSuiteForm(false)} />
+                        <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative w-full max-w-2xl bg-[#0D1424] border border-white/10 rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+                            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5 shrink-0">
+                                <h3 className="text-lg font-bold text-white flex items-center gap-2"><Layers className="w-5 h-5 text-blue-400" /> Create Test Suite</h3>
+                                <button onClick={() => setShowSuiteForm(false)} className="text-slate-400 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
                             </div>
-                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                                <button
-                                    type="button"
-                                    className="btn"
-                                    onClick={() => setShowCustomTestCaseForm(false)}
-                                >
-                                    Cancel
-                                </button>
-                                <button type="submit" className="btn btn-primary">
-                                    Create & Add to Suite
-                                </button>
+                            <form id="suite-form" onSubmit={handleCreateSuite} className="p-6 overflow-y-auto custom-scrollbar space-y-5">
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Suite Name *</label>
+                                    <input required type="text" placeholder="e.g. Smoke Tests" value={suiteName} onChange={e => setSuiteName(e.target.value)} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-blue-500/50 transition-colors" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Description</label>
+                                    <textarea rows={2} placeholder="Suite description..." value={suiteDesc} onChange={e => setSuiteDesc(e.target.value)} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-blue-500/50 transition-colors resize-none" />
+                                </div>
+                                
+                                <div className="p-4 rounded-xl border border-white/10 bg-black/20">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Select Test Cases</label>
+                                        <button type="button" onClick={() => setShowCustomTestCaseForm(true)} className="text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1"><Plus className="w-3 h-3" /> Custom Test Case</button>
+                                    </div>
+                                    <div className="max-h-[250px] overflow-y-auto custom-scrollbar pr-2 space-y-2">
+                                        {availableTestCases.length === 0 ? (
+                                            <p className="text-sm text-slate-500 py-4 text-center">No test cases available in this project.</p>
+                                        ) : (
+                                            availableTestCases.map(tc => (
+                                                <label key={tc.test_case_id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedTestCases.includes(tc.test_case_id) ? 'bg-cyan-500/10 border-cyan-500/30' : 'bg-white/5 border-white/5 hover:border-white/20'}`}>
+                                                    <input type="checkbox" checked={selectedTestCases.includes(tc.test_case_id)} onChange={() => toggleTestCase(tc.test_case_id)} className="accent-cyan-500 w-4 h-4 rounded border-white/20 bg-[#0D1424]" />
+                                                    <span className="text-sm text-white font-medium select-none">{tc.title}</span>
+                                                </label>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </form>
+                            <div className="p-4 border-t border-white/10 bg-white/5 flex gap-3 shrink-0">
+                                <button type="button" onClick={() => setShowSuiteForm(false)} className="flex-1 py-3 px-4 bg-white/5 border border-white/10 rounded-xl text-white text-sm font-bold hover:bg-white/10 transition-colors">Cancel</button>
+                                <button type="submit" form="suite-form" className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl text-sm font-bold hover:from-blue-400 hover:to-indigo-400 transition-colors shadow-[0_0_15px_rgba(59,130,246,0.3)]">Create Suite</button>
                             </div>
-                        </form>
+                        </motion.div>
                     </div>
-                </div>
-            )}
+                )}
+            </AnimatePresence>
+
+            {/* RUN CREATION MODAL */}
+            <AnimatePresence>
+                {showRunForm && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowRunForm(false)} />
+                        <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative w-full max-w-md bg-[#0D1424] border border-white/10 rounded-3xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
+                                <h3 className="text-lg font-bold text-white flex items-center gap-2"><PlaySquare className="w-5 h-5 text-cyan-400" /> Start New Run</h3>
+                                <button onClick={() => setShowRunForm(false)} className="text-slate-400 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
+                            </div>
+                            <form id="run-form" onSubmit={handleCreateRun} className="p-6 space-y-5">
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Run Name *</label>
+                                    <input required type="text" placeholder="e.g. Release 1.0 Regression" value={runName} onChange={e => setRunName(e.target.value)} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-500/50 transition-colors" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Test Suite *</label>
+                                    <select required value={selectedSuite} onChange={e => setSelectedSuite(e.target.value)} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-500/50 transition-colors appearance-none">
+                                        <option value="" className="bg-[#0D1424]">Select Test Suite</option>
+                                        {suites.map(s => <option key={s.test_suite_id} value={s.test_suite_id} className="bg-[#0D1424]">{s.name}</option>)}
+                                    </select>
+                                </div>
+                            </form>
+                            <div className="p-4 border-t border-white/10 bg-white/5 flex gap-3">
+                                <button type="button" onClick={() => setShowRunForm(false)} className="flex-1 py-3 px-4 bg-white/5 border border-white/10 rounded-xl text-white text-sm font-bold hover:bg-white/10 transition-colors">Cancel</button>
+                                <button type="submit" form="run-form" className="flex-1 py-3 px-4 bg-gradient-to-r from-cyan-500 to-blue-500 text-[#060B14] rounded-xl text-sm font-bold hover:from-cyan-400 hover:to-blue-400 transition-colors shadow-[0_0_15px_rgba(6,182,212,0.3)]">Start Run</button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* CUSTOM TEST CASE MODAL */}
+            <AnimatePresence>
+                {showCustomTestCaseForm && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowCustomTestCaseForm(false)} />
+                        <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative w-full max-w-2xl bg-[#0D1424] border border-white/10 rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+                            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5 shrink-0">
+                                <h3 className="text-lg font-bold text-white flex items-center gap-2"><Plus className="w-5 h-5 text-cyan-400" /> Quick Custom Test Case</h3>
+                                <button onClick={() => setShowCustomTestCaseForm(false)} className="text-slate-400 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
+                            </div>
+                            <form id="custom-tc-form" onSubmit={handleCreateCustomTestCase} className="p-6 overflow-y-auto custom-scrollbar space-y-5">
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Title *</label>
+                                    <input required type="text" placeholder="Title" value={customTestCase.title} onChange={e => setCustomTestCase({...customTestCase, title: e.target.value})} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-500/50" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Description</label>
+                                    <textarea rows={2} placeholder="Description" value={customTestCase.description} onChange={e => setCustomTestCase({...customTestCase, description: e.target.value})} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-500/50 resize-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Steps</label>
+                                    <textarea rows={3} placeholder="Steps (one per line)" value={customTestCase.steps} onChange={e => setCustomTestCase({...customTestCase, steps: e.target.value})} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-500/50 resize-none font-mono" />
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Expected Result</label>
+                                        <textarea rows={2} placeholder="Expected Result" value={customTestCase.expected_result} onChange={e => setCustomTestCase({...customTestCase, expected_result: e.target.value})} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-500/50 resize-none" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Priority</label>
+                                        <select value={customTestCase.priority} onChange={e => setCustomTestCase({...customTestCase, priority: e.target.value})} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-500/50 appearance-none">
+                                            <option value="High" className="bg-[#0D1424]">High</option>
+                                            <option value="Medium" className="bg-[#0D1424]">Medium</option>
+                                            <option value="Low" className="bg-[#0D1424]">Low</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </form>
+                            <div className="p-4 border-t border-white/10 bg-white/5 flex gap-3 shrink-0">
+                                <button type="button" onClick={() => setShowCustomTestCaseForm(false)} className="flex-1 py-3 px-4 bg-white/5 border border-white/10 rounded-xl text-white text-sm font-bold hover:bg-white/10 transition-colors">Cancel</button>
+                                <button type="submit" form="custom-tc-form" className="flex-1 py-3 px-4 bg-cyan-500 hover:bg-cyan-400 text-[#060B14] rounded-xl text-sm font-bold transition-colors shadow-[0_0_15px_rgba(6,182,212,0.3)]">Create & Add to Suite</button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

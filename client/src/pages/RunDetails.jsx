@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { PlaySquare, Download, FileText, FileSpreadsheet, ShieldAlert, Zap, Activity, Bug, ArrowLeft, Terminal, LayoutDashboard, Target, GitBranch, Box } from 'lucide-react';
 import api from '../api';
 
 const RunDetails = () => {
@@ -20,31 +22,24 @@ const RunDetails = () => {
 
     const fetchRunDetails = async () => {
         try {
-            // Fetch run data
             const runRes = await api.get(`/runs/${runId}`);
             setRunData(runRes.data);
 
-            // Fetch static issues
             const staticRes = await api.get(`/runs/${runId}/static-issues`);
             setStaticIssues(staticRes.data || []);
 
-            // Fetch security issues
             const securityRes = await api.get(`/runs/${runId}/security-issues`);
             setSecurityIssues(securityRes.data || []);
 
-            // Fetch defects
             const defectsRes = await api.get(`/defects?run_id=${runId}`);
             setDefects(defectsRes.data || []);
 
-            // Fetch complexity metrics
             const complexityRes = await api.get(`/runs/${runId}/complexity-metrics`);
             setComplexityMetrics(complexityRes.data || []);
 
-            // Fetch coverage summary
             const coverageRes = await api.get(`/runs/${runId}/coverage-summary`);
             setCoverageSummary(coverageRes.data);
 
-            // Fetch test type results
             const typeRes = await api.get(`/runs/${runId}/test-type-results`);
             setTestTypeResults(typeRes.data || []);
 
@@ -73,187 +68,278 @@ const RunDetails = () => {
         }
     };
 
-    if (loading) return <div>Loading...</div>;
+    if (loading) return (
+        <div className="flex justify-center items-center h-64">
+            <div className="w-8 h-8 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+        </div>
+    );
 
-    // Helper to get result for a specific type
     const getResult = (type) => testTypeResults.find(r => r.test_type === type);
 
+    const tabs = [
+        { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+        { id: 'static', label: `Static (${staticIssues.length})`, icon: Terminal },
+        { id: 'security', label: `Security (${securityIssues.length})`, icon: ShieldAlert },
+        { id: 'complexity', label: 'Complexity', icon: Activity },
+        { id: 'coverage', label: 'Coverage', icon: Target },
+        ...(getResult('Performance Testing') ? [{ id: 'performance', label: 'Performance', icon: Zap }] : []),
+        ...(getResult('Integration Testing') ? [{ id: 'integration', label: 'Integration', icon: Box }] : []),
+        ...(getResult('Regression Testing') ? [{ id: 'regression', label: 'Regression', icon: GitBranch }] : []),
+        { id: 'defects', label: `Defects (${defects.length})`, icon: Bug },
+    ];
+
     return (
-        <div className="animate-fade-in">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <h1>Test Run #{runId}</h1>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button className="btn btn-primary" onClick={() => downloadReport('defects', 'pdf')}>
-                        📄 Defect PDF
+        <div className="space-y-6">
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row justify-between items-start gap-4">
+                <div>
+                    <Link to="/test-runs" className="flex items-center gap-1 text-xs font-bold text-cyan-400 hover:text-cyan-300 transition-colors uppercase tracking-widest mb-3 w-fit px-2.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20">
+                        <ArrowLeft className="w-3 h-3" /> Back to Test Runs
+                    </Link>
+                    <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                        <PlaySquare className="w-8 h-8 text-cyan-400" /> Run #{runId} Summary
+                    </h1>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    <button onClick={() => downloadReport('defects', 'pdf')} className="flex items-center gap-2 px-3 py-2 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 text-rose-400 font-bold text-sm rounded-xl transition-colors">
+                        <FileText className="w-4 h-4" /> Defect PDF
                     </button>
-                    <button className="btn btn-primary" onClick={() => downloadReport('defects', 'excel')}>
-                        📊 Defect Excel
+                    <button onClick={() => downloadReport('defects', 'excel')} className="flex items-center gap-2 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-400 font-bold text-sm rounded-xl transition-colors">
+                        <FileSpreadsheet className="w-4 h-4" /> Defect Excel
                     </button>
-                    <button className="btn btn-primary" onClick={() => downloadReport('execution', 'pdf')}>
-                        📋 Execution PDF
+                    <button onClick={() => downloadReport('execution', 'pdf')} className="flex items-center gap-2 px-3 py-2 bg-cyan-500/10 border border-cyan-500/20 hover:bg-cyan-500/20 text-cyan-400 font-bold text-sm rounded-xl transition-colors">
+                        <Download className="w-4 h-4" /> Execution PDF
                     </button>
                 </div>
-            </div>
+            </motion.div>
 
             {/* Tabs */}
-            <div className="card" style={{ marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '1rem', overflowX: 'auto' }}>
-                    <button className={`btn ${activeTab === 'overview' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('overview')}>Overview</button>
-                    <button className={`btn ${activeTab === 'static' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('static')}>Static ({staticIssues.length})</button>
-                    <button className={`btn ${activeTab === 'security' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('security')}>Security ({securityIssues.length})</button>
-                    <button className={`btn ${activeTab === 'complexity' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('complexity')}>Complexity</button>
-                    <button className={`btn ${activeTab === 'coverage' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('coverage')}>Coverage</button>
-                    {getResult('Performance Testing') && <button className={`btn ${activeTab === 'performance' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('performance')}>Performance</button>}
-                    {getResult('Integration Testing') && <button className={`btn ${activeTab === 'integration' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('integration')}>Integration</button>}
-                    {getResult('Regression Testing') && <button className={`btn ${activeTab === 'regression' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('regression')}>Regression</button>}
-                    <button className={`btn ${activeTab === 'defects' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('defects')}>Defects ({defects.length})</button>
-                </div>
+            <div className="flex gap-2 p-1 bg-[#0D1424] rounded-xl border border-white/10 w-full overflow-x-auto custom-scrollbar">
+                {tabs.map(tab => (
+                    <button 
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)} 
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap shrink-0 ${activeTab === tab.id ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.1)]' : 'text-slate-400 hover:text-white border border-transparent'}`}
+                    >
+                        <tab.icon className="w-4 h-4" /> {tab.label}
+                    </button>
+                ))}
+            </div>
 
-                {/* Overview Tab */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-[#0B0F19]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl relative overflow-hidden min-h-[400px]">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 blur-[50px] rounded-full -mr-20 -mt-20 pointer-events-none" />
+
+                {/* OVERVIEW TAB */}
                 {activeTab === 'overview' && (
-                    <div style={{ marginTop: '1rem' }}>
-                        <h3>Run Summary</h3>
-                        <div className="stats-grid" style={{ marginTop: '1rem' }}>
-                            <div className="stat-card">
-                                <span className="stat-label">Status</span>
-                                <span className={`stat-value badge badge-${runData?.status === 'Passed' ? 'success' : 'danger'}`}>
-                                    {runData?.status || 'Unknown'}
-                                </span>
+                    <div className="space-y-6 relative z-10">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold text-white">Execution Status</h3>
+                            <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest border ${runData?.status === 'Passed' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
+                                {runData?.status || 'Unknown'}
+                            </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:border-blue-500/30 transition-colors">
+                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Static Issues</p>
+                                <h3 className="text-3xl font-black text-white">{staticIssues.length}</h3>
                             </div>
-                            <div className="stat-card">
-                                <span className="stat-label">Static Issues</span>
-                                <span className="stat-value">{staticIssues.length}</span>
+                            <div className="bg-rose-500/5 border border-rose-500/10 rounded-2xl p-5 hover:border-rose-500/30 transition-colors">
+                                <p className="text-xs font-black text-rose-400 uppercase tracking-widest mb-1">Security Issues</p>
+                                <h3 className="text-3xl font-black text-rose-500">{securityIssues.length}</h3>
                             </div>
-                            <div className="stat-card">
-                                <span className="stat-label">Security Issues</span>
-                                <span className="stat-value" style={{ color: 'var(--danger)' }}>{securityIssues.length}</span>
+                            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:border-amber-500/30 transition-colors">
+                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Defects Created</p>
+                                <h3 className="text-3xl font-black text-white">{defects.length}</h3>
                             </div>
-                            <div className="stat-card">
-                                <span className="stat-label">Defects Created</span>
-                                <span className="stat-value">{defects.length}</span>
+                            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:border-cyan-500/30 transition-colors">
+                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Project ID</p>
+                                <h3 className="text-xl font-black text-white mt-1">PRJ-{runData?.project_id || 'N/A'}</h3>
                             </div>
                         </div>
-                        <div style={{ marginTop: '2rem' }}>
-                            <p><strong>Started:</strong> {runData?.started_at ? new Date(runData.started_at).toLocaleString() : 'N/A'}</p>
-                            <p><strong>Project ID:</strong> {runData?.project_id || 'N/A'}</p>
+
+                        <div className="p-4 bg-[#0D1424] border border-white/10 rounded-xl mt-6">
+                            <p className="text-sm text-slate-400"><strong>Started At:</strong> <span className="text-white">{runData?.started_at ? new Date(runData.started_at).toLocaleString() : 'N/A'}</span></p>
                         </div>
                     </div>
                 )}
 
-                {/* Static Analysis Tab */}
+                {/* STATIC TAB */}
                 {activeTab === 'static' && (
-                    <div style={{ marginTop: '1rem' }}>
-                        <h3>Static Analysis Issues</h3>
-                        {staticIssues.length === 0 ? <p className="text-light">No static analysis issues found.</p> : (
-                            <table className="table" style={{ marginTop: '1rem' }}>
-                                <thead><tr><th>Severity</th><th>File</th><th>Line</th><th>Rule</th><th>Message</th></tr></thead>
-                                <tbody>
-                                    {staticIssues.map((issue, i) => (
-                                        <tr key={i}>
-                                            <td><span className={`badge badge-${issue.severity === 'Error' ? 'danger' : 'warning'}`}>{issue.severity}</span></td>
-                                            <td>{issue.file}</td>
-                                            <td>{issue.line}</td>
-                                            <td><code>{issue.rule}</code></td>
-                                            <td>{issue.message}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
-                    </div>
-                )}
-
-                {/* Security Tab */}
-                {activeTab === 'security' && (
-                    <div style={{ marginTop: '1rem' }}>
-                        <h3>Security Vulnerabilities</h3>
-                        {securityIssues.length === 0 ? <p className="text-light">No security vulnerabilities found.</p> : (
-                            <table className="table" style={{ marginTop: '1rem' }}>
-                                <thead><tr><th>Severity</th><th>Package/File</th><th>Rule</th><th>Description</th></tr></thead>
-                                <tbody>
-                                    {securityIssues.map((issue, i) => (
-                                        <tr key={i}>
-                                            <td><span className={`badge badge-${issue.severity === 'critical' || issue.severity === 'high' ? 'danger' : 'warning'}`}>{issue.severity}</span></td>
-                                            <td>{issue.file}</td>
-                                            <td><code>{issue.rule}</code></td>
-                                            <td>{issue.description}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
-                    </div>
-                )}
-
-                {/* Complexity Tab */}
-                {activeTab === 'complexity' && (
-                    <div style={{ marginTop: '1rem' }}>
-                        <h3>Complexity Metrics</h3>
-                        {complexityMetrics.length === 0 ? <p className="text-light">No complexity metrics available.</p> : (
-                            <table className="table" style={{ marginTop: '1rem' }}>
-                                <thead><tr><th>File</th><th>Complexity</th><th>Maintainability</th></tr></thead>
-                                <tbody>
-                                    {complexityMetrics.map((metric, i) => (
-                                        <tr key={i}>
-                                            <td>{metric.file}</td>
-                                            <td><span className={`badge badge-${metric.complexity_score > 10 ? 'danger' : 'success'}`}>{metric.complexity_score}</span></td>
-                                            <td>{metric.maintainability_index}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
-                    </div>
-                )}
-
-                {/* Coverage Tab */}
-                {activeTab === 'coverage' && (
-                    <div style={{ marginTop: '1rem' }}>
-                        <h3>Code Coverage</h3>
-                        {coverageSummary ? (
-                            <div className="stats-grid">
-                                <div className="stat-card">
-                                    <span className="stat-label">Line Coverage</span>
-                                    <span className={`stat-value ${coverageSummary.lines_covered / coverageSummary.lines_total < 0.6 ? 'text-danger' : 'text-success'}`}>
-                                        {Math.round((coverageSummary.lines_covered / coverageSummary.lines_total) * 100)}%
-                                    </span>
-                                    <span className="text-light text-sm">{coverageSummary.lines_covered}/{coverageSummary.lines_total} lines</span>
-                                </div>
-                                <div className="stat-card">
-                                    <span className="stat-label">Branch Coverage</span>
-                                    <span className="stat-value">{Math.round((coverageSummary.branches_covered / coverageSummary.branches_total) * 100)}%</span>
-                                </div>
-                                <div className="stat-card">
-                                    <span className="stat-label">Function Coverage</span>
-                                    <span className="stat-value">{Math.round((coverageSummary.functions_covered / coverageSummary.functions_total) * 100)}%</span>
-                                </div>
+                    <div className="relative z-10">
+                        <h3 className="text-xl font-bold text-white mb-6">Static Analysis Issues</h3>
+                        {staticIssues.length === 0 ? (
+                            <div className="py-12 flex flex-col items-center justify-center border border-dashed border-white/10 rounded-xl bg-white/5">
+                                <Terminal className="w-8 h-8 text-slate-500 mb-3" />
+                                <p className="text-sm text-slate-400">No static analysis issues found.</p>
                             </div>
-                        ) : <p className="text-light">No coverage data available.</p>}
+                        ) : (
+                            <div className="overflow-x-auto rounded-xl border border-white/10">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-white/5 text-slate-300 font-bold border-b border-white/10">
+                                        <tr>
+                                            <th className="px-4 py-3">Severity</th>
+                                            <th className="px-4 py-3">File</th>
+                                            <th className="px-4 py-3">Line</th>
+                                            <th className="px-4 py-3">Rule</th>
+                                            <th className="px-4 py-3">Message</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {staticIssues.map((issue, i) => (
+                                            <tr key={i} className="hover:bg-white/5 transition-colors text-slate-400">
+                                                <td className="px-4 py-3">
+                                                    <span className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded border ${issue.severity === 'Error' ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
+                                                        {issue.severity}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-white">{issue.file}</td>
+                                                <td className="px-4 py-3 font-mono">{issue.line}</td>
+                                                <td className="px-4 py-3"><code className="px-1.5 py-0.5 rounded bg-black/40 text-cyan-400 font-mono text-xs">{issue.rule}</code></td>
+                                                <td className="px-4 py-3">{issue.message}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
                 )}
 
-                {/* Performance Tab */}
+                {/* SECURITY TAB */}
+                {activeTab === 'security' && (
+                    <div className="relative z-10">
+                        <h3 className="text-xl font-bold text-white mb-6">Security Vulnerabilities</h3>
+                        {securityIssues.length === 0 ? (
+                            <div className="py-12 flex flex-col items-center justify-center border border-dashed border-white/10 rounded-xl bg-white/5">
+                                <ShieldAlert className="w-8 h-8 text-emerald-500/50 mb-3" />
+                                <p className="text-sm text-emerald-400/70">No security vulnerabilities found.</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto rounded-xl border border-white/10">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-white/5 text-slate-300 font-bold border-b border-white/10">
+                                        <tr>
+                                            <th className="px-4 py-3">Severity</th>
+                                            <th className="px-4 py-3">Package/File</th>
+                                            <th className="px-4 py-3">Rule</th>
+                                            <th className="px-4 py-3">Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {securityIssues.map((issue, i) => (
+                                            <tr key={i} className="hover:bg-white/5 transition-colors text-slate-400">
+                                                <td className="px-4 py-3">
+                                                    <span className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded border ${issue.severity === 'critical' || issue.severity === 'high' ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
+                                                        {issue.severity}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-white">{issue.file}</td>
+                                                <td className="px-4 py-3"><code className="px-1.5 py-0.5 rounded bg-black/40 text-rose-400 font-mono text-xs">{issue.rule}</code></td>
+                                                <td className="px-4 py-3">{issue.description}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* COMPLEXITY TAB */}
+                {activeTab === 'complexity' && (
+                    <div className="relative z-10">
+                        <h3 className="text-xl font-bold text-white mb-6">Complexity Metrics</h3>
+                        {complexityMetrics.length === 0 ? (
+                            <div className="py-12 flex flex-col items-center justify-center border border-dashed border-white/10 rounded-xl bg-white/5">
+                                <Activity className="w-8 h-8 text-slate-500 mb-3" />
+                                <p className="text-sm text-slate-400">No complexity metrics available.</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto rounded-xl border border-white/10">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-white/5 text-slate-300 font-bold border-b border-white/10">
+                                        <tr>
+                                            <th className="px-4 py-3">File</th>
+                                            <th className="px-4 py-3">Complexity Score</th>
+                                            <th className="px-4 py-3">Maintainability Index</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {complexityMetrics.map((metric, i) => (
+                                            <tr key={i} className="hover:bg-white/5 transition-colors text-slate-400">
+                                                <td className="px-4 py-3 text-white">{metric.file}</td>
+                                                <td className="px-4 py-3">
+                                                    <span className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded border ${metric.complexity_score > 10 ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
+                                                        {metric.complexity_score}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 font-mono">{metric.maintainability_index}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* COVERAGE TAB */}
+                {activeTab === 'coverage' && (
+                    <div className="relative z-10">
+                        <h3 className="text-xl font-bold text-white mb-6">Code Coverage</h3>
+                        {coverageSummary ? (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {[
+                                    { label: 'Line Coverage', cov: coverageSummary.lines_covered, tot: coverageSummary.lines_total },
+                                    { label: 'Branch Coverage', cov: coverageSummary.branches_covered, tot: coverageSummary.branches_total },
+                                    { label: 'Function Coverage', cov: coverageSummary.functions_covered, tot: coverageSummary.functions_total }
+                                ].map((item, i) => {
+                                    const percent = Math.round((item.cov / item.tot) * 100) || 0;
+                                    const isLow = percent < 60;
+                                    return (
+                                        <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-6 relative overflow-hidden group">
+                                            <div className="flex justify-between items-end relative z-10 mb-4">
+                                                <span className="text-sm font-black text-slate-400 uppercase tracking-widest">{item.label}</span>
+                                                <span className={`text-4xl font-black ${isLow ? 'text-rose-400' : 'text-emerald-400'}`}>{percent}%</span>
+                                            </div>
+                                            
+                                            <div className="w-full bg-black/40 rounded-full h-2.5 mb-2 overflow-hidden border border-white/5">
+                                                <div className={`h-2.5 rounded-full ${isLow ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{ width: `${percent}%` }}></div>
+                                            </div>
+                                            <p className="text-xs text-slate-500 text-right">{item.cov} / {item.tot} units</p>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        ) : (
+                            <div className="py-12 flex flex-col items-center justify-center border border-dashed border-white/10 rounded-xl bg-white/5">
+                                <Target className="w-8 h-8 text-slate-500 mb-3" />
+                                <p className="text-sm text-slate-400">No coverage data available.</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* PERFORMANCE TAB */}
                 {activeTab === 'performance' && getResult('Performance Testing') && (
-                    <div style={{ marginTop: '1rem' }}>
-                        <h3>Performance Results</h3>
+                    <div className="relative z-10">
+                        <h3 className="text-xl font-bold text-white mb-6">Performance Results</h3>
                         {(() => {
                             const result = getResult('Performance Testing');
                             const details = JSON.parse(result.details);
                             return (
-                                <div>
-                                    <div className="stats-grid">
-                                        <div className="stat-card">
-                                            <span className="stat-label">Avg Response Time</span>
-                                            <span className="stat-value">{details.avgResponseTime}ms</span>
-                                        </div>
-                                        <div className="stat-card">
-                                            <span className="stat-label">Passed</span>
-                                            <span className="stat-value text-success">{details.passed}</span>
-                                        </div>
-                                        <div className="stat-card">
-                                            <span className="stat-label">Failed</span>
-                                            <span className="stat-value text-danger">{details.failed}</span>
-                                        </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Avg Response Time</p>
+                                        <div className="flex items-end gap-2"><h3 className="text-3xl font-black text-cyan-400">{details.avgResponseTime}</h3><span className="text-slate-500 font-bold mb-1">ms</span></div>
+                                    </div>
+                                    <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-6">
+                                        <p className="text-xs font-black text-emerald-500/70 uppercase tracking-widest mb-2">Passed Requests</p>
+                                        <h3 className="text-3xl font-black text-emerald-400">{details.passed}</h3>
+                                    </div>
+                                    <div className="bg-rose-500/5 border border-rose-500/20 rounded-2xl p-6">
+                                        <p className="text-xs font-black text-rose-500/70 uppercase tracking-widest mb-2">Failed Requests</p>
+                                        <h3 className="text-3xl font-black text-rose-400">{details.failed}</h3>
                                     </div>
                                 </div>
                             );
@@ -261,72 +347,100 @@ const RunDetails = () => {
                     </div>
                 )}
 
-                {/* Integration Tab */}
+                {/* INTEGRATION TAB */}
                 {activeTab === 'integration' && getResult('Integration Testing') && (
-                    <div style={{ marginTop: '1rem' }}>
-                        <h3>Integration Results</h3>
+                    <div className="relative z-10">
+                        <h3 className="text-xl font-bold text-white mb-6">Integration Results</h3>
                         {(() => {
                             const result = getResult('Integration Testing');
                             const details = JSON.parse(result.details);
                             return (
-                                <div>
-                                    <p>Total Tests: {details.total} | Passed: {details.passed} | Failed: {details.failed}</p>
+                                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex items-center justify-between">
+                                    <p className="text-slate-300">Total Integrations Tested: <span className="text-white font-bold">{details.total}</span></p>
+                                    <div className="flex gap-4">
+                                        <span className="px-3 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-sm">Passed: {details.passed}</span>
+                                        <span className="px-3 py-1 rounded bg-rose-500/10 border border-rose-500/20 text-rose-400 font-bold text-sm">Failed: {details.failed}</span>
+                                    </div>
                                 </div>
                             );
                         })()}
                     </div>
                 )}
 
-                {/* Regression Tab */}
+                {/* REGRESSION TAB */}
                 {activeTab === 'regression' && getResult('Regression Testing') && (
-                    <div style={{ marginTop: '1rem' }}>
-                        <h3>Regression Results</h3>
+                    <div className="relative z-10">
+                        <h3 className="text-xl font-bold text-white mb-6">Regression Results</h3>
                         {(() => {
                             const result = getResult('Regression Testing');
                             const details = JSON.parse(result.details);
                             return (
-                                <div>
-                                    <div className="stats-grid">
-                                        <div className="stat-card">
-                                            <span className="stat-label">New Regressions</span>
-                                            <span className={`stat-value ${details.totalRegressions > 0 ? 'text-danger' : 'text-success'}`}>{details.totalRegressions}</span>
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">New Regressions</p>
+                                            <h3 className={`text-3xl font-black ${details.totalRegressions > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>{details.totalRegressions}</h3>
                                         </div>
-                                        <div className="stat-card">
-                                            <span className="stat-label">Improvements</span>
-                                            <span className="stat-value text-success">{details.totalImprovements}</span>
+                                        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Improvements</p>
+                                            <h3 className="text-3xl font-black text-cyan-400">{details.totalImprovements}</h3>
                                         </div>
                                     </div>
-                                    {details.comparedWithRun && <p className="text-light" style={{ marginTop: '1rem' }}>Compared with Run #{details.comparedWithRun}</p>}
+                                    {details.comparedWithRun && (
+                                        <p className="text-sm text-slate-500 bg-[#0D1424] px-4 py-2 border border-white/5 rounded-xl w-fit">
+                                            Compared against baseline run: <strong className="text-white">#{details.comparedWithRun}</strong>
+                                        </p>
+                                    )}
                                 </div>
                             );
                         })()}
                     </div>
                 )}
 
-                {/* Defects Tab */}
+                {/* DEFECTS TAB */}
                 {activeTab === 'defects' && (
-                    <div style={{ marginTop: '1rem' }}>
-                        <h3>Auto-Created Defects</h3>
-                        {defects.length === 0 ? <p className="text-light">No defects created for this run.</p> : (
-                            <table className="table" style={{ marginTop: '1rem' }}>
-                                <thead><tr><th>ID</th><th>Title</th><th>Severity</th><th>Priority</th><th>Status</th><th>Created</th></tr></thead>
-                                <tbody>
-                                    {defects.map((defect) => (
-                                        <tr key={defect.defect_id}>
-                                            <td>{defect.defect_id}</td>
-                                            <td>{defect.title}</td>
-                                            <td><span className={`badge badge-${defect.severity === 'High' || defect.severity === 'Critical' ? 'danger' : 'warning'}`}>{defect.severity}</span></td>
-                                            <td>{defect.priority}</td>
-                                            <td>{defect.status}</td>
-                                            <td>{new Date(defect.created_at).toLocaleDateString()}</td>
+                    <div className="relative z-10">
+                        <h3 className="text-xl font-bold text-white mb-6">Auto-Created Defects</h3>
+                        {defects.length === 0 ? (
+                            <div className="py-12 flex flex-col items-center justify-center border border-dashed border-white/10 rounded-xl bg-white/5">
+                                <Bug className="w-8 h-8 text-emerald-500/50 mb-3" />
+                                <p className="text-sm text-emerald-400/70">No defects created for this run.</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto rounded-xl border border-white/10">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-white/5 text-slate-300 font-bold border-b border-white/10">
+                                        <tr>
+                                            <th className="px-4 py-3">ID</th>
+                                            <th className="px-4 py-3">Title</th>
+                                            <th className="px-4 py-3">Severity</th>
+                                            <th className="px-4 py-3">Priority</th>
+                                            <th className="px-4 py-3">Status</th>
+                                            <th className="px-4 py-3">Created</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {defects.map((defect) => (
+                                            <tr key={defect.defect_id} className="hover:bg-white/5 transition-colors text-slate-400">
+                                                <td className="px-4 py-3 font-mono text-cyan-400">#{defect.defect_id}</td>
+                                                <td className="px-4 py-3 text-white font-medium">{defect.title}</td>
+                                                <td className="px-4 py-3">
+                                                    <span className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded border ${defect.severity === 'High' || defect.severity === 'Critical' ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
+                                                        {defect.severity}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3">{defect.priority}</td>
+                                                <td className="px-4 py-3">{defect.status}</td>
+                                                <td className="px-4 py-3 text-xs">{new Date(defect.created_at).toLocaleDateString()}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         )}
                     </div>
                 )}
-            </div>
+            </motion.div>
         </div>
     );
 };
