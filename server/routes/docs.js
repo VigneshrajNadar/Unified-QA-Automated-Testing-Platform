@@ -1,71 +1,75 @@
 const express = require('express');
 const PDFDocument = require('pdfkit');
-const db = require('../database');
-const authenticateToken = require('../middleware/authMiddleware');
+const Project = require('../models/Project');
+const TestCase = require('../models/TestCase');
 
 const router = express.Router();
 
 // Export Test Cases for a Project
-router.get('/export/testcases/:project_id', (req, res) => {
+router.get('/export/testcases/:project_id', async (req, res) => {
     const projectId = req.params.project_id;
 
-    // Fetch Project Info
-    db.get(`SELECT * FROM projects WHERE project_id = ?`, [projectId], (err, project) => {
-        if (err || !project) return res.status(404).json({ message: 'Project not found' });
+    try {
+        // Fetch Project Info
+        const project = await Project.findById(projectId).lean();
+        if (!project) return res.status(404).json({ message: 'Project not found' });
 
         // Fetch Test Cases
-        db.all(`SELECT tc.*, m.name as module_name, u.name as author 
-                FROM test_cases tc 
-                LEFT JOIN modules m ON tc.module_id = m.module_id 
-                LEFT JOIN users u ON tc.created_by = u.user_id
-                WHERE tc.project_id = ? 
-                ORDER BY tc.module_id, tc.test_case_id`, [projectId], (err, testCases) => {
+        const testCases = await TestCase.find({ project_id: projectId })
+            .populate('module_id', 'name')
+            .populate('created_by', 'name')
+            .sort({ module_id: 1, created_at: 1 })
+            .lean();
 
-            if (err) return res.status(500).json({ message: 'Database error' });
+        const doc = new PDFDocument();
 
-            const doc = new PDFDocument();
+        // Set response headers
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=TestCases_${project.name.replace(/\s+/g, '_')}.pdf`);
 
-            // Set response headers
-            res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `attachment; filename=TestCases_${project.name.replace(/\s+/g, '_')}.pdf`);
+        doc.pipe(res);
 
-            doc.pipe(res);
+        // Title
+        doc.fontSize(20).text(`Test Cases Report: ${project.name}`, { align: 'center' });
+        doc.moveDown();
+        doc.fontSize(12).text(`Description: ${project.description || 'N/A'}`);
+        doc.text(`Generated on: ${new Date().toLocaleString()}`);
+        doc.moveDown();
 
-            // Title
-            doc.fontSize(20).text(`Test Cases Report: ${project.name}`, { align: 'center' });
+        // Table Header (Simulated)
+        testCases.forEach((tc, index) => {
+            doc.fontSize(14).text(`Test Case #${index + 1}: ${tc.title}`, { underline: true });
+            doc.fontSize(10);
+            doc.text(`ID: ${tc._id} | Priority: ${tc.priority} | Status: ${tc.status}`);
+            
+            const moduleName = tc.module_id ? tc.module_id.name : 'General';
+            const author = tc.created_by ? tc.created_by.name : 'Unknown';
+            
+            doc.text(`Module: ${moduleName} | Author: ${author}`);
+            doc.moveDown(0.5);
+
+            doc.font('Helvetica-Bold').text('Description:');
+            doc.font('Helvetica').text(tc.description || 'None');
+
+            doc.font('Helvetica-Bold').text('Preconditions:');
+            doc.font('Helvetica').text(tc.preconditions || 'None');
+
+            doc.font('Helvetica-Bold').text('Steps:');
+            doc.font('Helvetica').text(tc.steps || 'None');
+
+            doc.font('Helvetica-Bold').text('Expected Result:');
+            doc.font('Helvetica').text(tc.expected_result || 'None');
+
             doc.moveDown();
-            doc.fontSize(12).text(`Description: ${project.description || 'N/A'}`);
-            doc.text(`Generated on: ${new Date().toLocaleString()}`);
+            doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke(); // Separator line
             doc.moveDown();
-
-            // Table Header (Simulated)
-            testCases.forEach((tc, index) => {
-                doc.fontSize(14).text(`Test Case #${index + 1}: ${tc.title}`, { underline: true });
-                doc.fontSize(10);
-                doc.text(`ID: ${tc.test_case_id} | Priority: ${tc.priority} | Status: ${tc.status}`);
-                doc.text(`Module: ${tc.module_name || 'General'} | Author: ${tc.author}`);
-                doc.moveDown(0.5);
-
-                doc.font('Helvetica-Bold').text('Description:');
-                doc.font('Helvetica').text(tc.description || 'None');
-
-                doc.font('Helvetica-Bold').text('Preconditions:');
-                doc.font('Helvetica').text(tc.preconditions || 'None');
-
-                doc.font('Helvetica-Bold').text('Steps:');
-                doc.font('Helvetica').text(tc.steps || 'None');
-
-                doc.font('Helvetica-Bold').text('Expected Result:');
-                doc.font('Helvetica').text(tc.expected_result || 'None');
-
-                doc.moveDown();
-                doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke(); // Separator line
-                doc.moveDown();
-            });
-
-            doc.end();
         });
-    });
+
+        doc.end();
+
+    } catch (err) {
+        res.status(500).json({ message: 'Database error', error: err.message });
+    }
 });
 
 module.exports = router;

@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const db = require('../database');
+const User = require('../models/User');
 
 const SECRET_KEY = process.env.SECRET_KEY || 'qa-tool-secret-key-2024';
 
@@ -16,42 +16,47 @@ router.post('/register', async (req, res) => {
     }
 
     try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const sql = `INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)`;
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ message: 'Email already exists' });
+        }
 
-        db.run(sql, [name, email, hashedPassword, role], function (err) {
-            if (err) {
-                if (err.message.includes('UNIQUE constraint failed')) {
-                    return res.status(400).json({ message: 'Email already exists' });
-                }
-                return res.status(500).json({ message: 'Database error', error: err.message });
-            }
-            res.status(201).json({ message: 'User registered successfully', userId: this.lastID });
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        const newUser = new User({
+            name,
+            email,
+            password: hashedPassword,
+            role
         });
+
+        await newUser.save();
+        res.status(201).json({ message: 'User registered successfully', userId: newUser._id });
     } catch (error) {
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 });
 
 // Login
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
         return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    const sql = `SELECT * FROM users WHERE email = ?`;
-    db.get(sql, [email], async (err, user) => {
-        if (err) return res.status(500).json({ message: 'Database error' });
+    try {
+        const user = await User.findOne({ email });
         if (!user) return res.status(400).json({ message: 'Invalid credentials' });
 
-        const validPassword = await bcrypt.compare(password, user.password_hash);
+        const validPassword = await bcrypt.compare(password, user.password);
         if (!validPassword) return res.status(400).json({ message: 'Invalid credentials' });
 
-        const token = jwt.sign({ userId: user.user_id, role: user.role, name: user.name }, SECRET_KEY, { expiresIn: '1h' });
-        res.json({ token, user: { id: user.user_id, name: user.name, email: user.email, role: user.role } });
-    });
+        const token = jwt.sign({ userId: user._id, role: user.role, name: user.name }, SECRET_KEY, { expiresIn: '1h' });
+        res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+    } catch (error) {
+        res.status(500).json({ message: 'Database error', error: error.message });
+    }
 });
 
 // Get Current User (Protected)

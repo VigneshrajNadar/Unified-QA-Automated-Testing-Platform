@@ -1,17 +1,19 @@
 const express = require('express');
-const db = require('../database');
+const User = require('../models/User');
 const bcrypt = require('bcrypt');
-const authenticateToken = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
 // Get Current User Profile
-router.get('/profile', (req, res) => {
-    db.get('SELECT user_id, name, email, role, created_at FROM users WHERE user_id = ?', [req.user.userId], (err, row) => {
-        if (err) return res.status(500).json({ message: 'Database error' });
-        if (!row) return res.status(404).json({ message: 'User not found' });
-        res.json(row);
-    });
+router.get('/profile', async (req, res) => {
+    try {
+        const user = await User.findById(req.user.userId).select('-password').lean();
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        
+        res.json({ ...user, user_id: user._id });
+    } catch (err) {
+        res.status(500).json({ message: 'Database error', error: err.message });
+    }
 });
 
 // Update Current User Profile
@@ -21,53 +23,58 @@ router.put('/profile', async (req, res) => {
     if (!name) return res.status(400).json({ message: 'Name is required' });
 
     try {
+        const updateData = { name };
         if (password) {
-            const hashedPassword = await bcrypt.hash(password, 10);
-            db.run('UPDATE users SET name = ?, password = ? WHERE user_id = ?', [name, hashedPassword, req.user.userId], (err) => {
-                if (err) return res.status(500).json({ message: 'Database error' });
-                res.json({ message: 'Profile updated successfully' });
-            });
-        } else {
-            db.run('UPDATE users SET name = ? WHERE user_id = ?', [name, req.user.userId], (err) => {
-                if (err) return res.status(500).json({ message: 'Database error' });
-                res.json({ message: 'Profile updated successfully' });
-            });
+            updateData.password = await bcrypt.hash(password, 10);
         }
+
+        await User.findByIdAndUpdate(req.user.userId, updateData);
+        res.json({ message: 'Profile updated successfully' });
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: 'Server error', error: err.message });
     }
 });
 
 // Get Users for "Assign To" Dropdown
-router.get('/assignable', (req, res) => {
-    db.all('SELECT user_id, name, role FROM users ORDER BY name ASC', [], (err, rows) => {
-        if (err) return res.status(500).json({ message: 'Database error' });
-        res.json(rows);
-    });
+router.get('/assignable', async (req, res) => {
+    try {
+        const users = await User.find().select('name role').sort({ name: 1 }).lean();
+        res.json(users.map(u => ({ ...u, user_id: u._id })));
+    } catch (err) {
+        res.status(500).json({ message: 'Database error', error: err.message });
+    }
 });
 
 // Admin: Get All Users
-router.get('/', (req, res) => {
-    if (req.user.role !== 'Admin') return res.status(403).json({ message: 'Access denied' });
+router.get('/', async (req, res) => {
+    if (req.user.role && req.user.role.toLowerCase() !== 'admin') {
+        return res.status(403).json({ message: 'Access denied' });
+    }
 
-    db.all('SELECT user_id, name, email, role, created_at FROM users ORDER BY created_at DESC', [], (err, rows) => {
-        if (err) return res.status(500).json({ message: 'Database error' });
-        res.json(rows);
-    });
+    try {
+        const users = await User.find().select('-password').sort({ created_at: -1 }).lean();
+        res.json(users.map(u => ({ ...u, user_id: u._id })));
+    } catch (err) {
+        res.status(500).json({ message: 'Database error', error: err.message });
+    }
 });
 
 // Admin: Delete User
-router.delete('/:id', (req, res) => {
-    if (req.user.role !== 'Admin') return res.status(403).json({ message: 'Access denied' });
+router.delete('/:id', async (req, res) => {
+    if (req.user.role && req.user.role.toLowerCase() !== 'admin') {
+        return res.status(403).json({ message: 'Access denied' });
+    }
 
-    if (parseInt(req.params.id) === req.user.userId) {
+    if (req.params.id === req.user.userId.toString()) {
         return res.status(400).json({ message: 'Cannot delete yourself' });
     }
 
-    db.run('DELETE FROM users WHERE user_id = ?', [req.params.id], function (err) {
-        if (err) return res.status(500).json({ message: 'Database error' });
+    try {
+        await User.findByIdAndDelete(req.params.id);
         res.json({ message: 'User deleted' });
-    });
+    } catch (err) {
+        res.status(500).json({ message: 'Database error', error: err.message });
+    }
 });
 
 module.exports = router;

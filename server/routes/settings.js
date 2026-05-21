@@ -1,45 +1,57 @@
 const express = require('express');
+const Setting = require('../models/Setting');
+
 const router = express.Router();
-const db = require('../database');
-const authenticateToken = require('../middleware/authMiddleware');
 
 // Get Settings
-router.get('/', (req, res) => {
-    db.get('SELECT * FROM settings WHERE user_id = ?', [req.user.userId], (err, row) => {
-        if (err) return res.status(500).json({ message: 'Database error' });
-        if (!row) {
+router.get('/', async (req, res) => {
+    try {
+        const settings = await Setting.findOne({ user_id: req.user.userId }).lean();
+        
+        if (!settings) {
             // Return defaults if no settings found
             return res.json({
                 coverage_threshold: 80,
                 complexity_threshold: 10,
                 security_strictness: 'High',
-                notifications_enabled: 1,
+                notifications_enabled: true,
                 rtm_strictness: 'Strict'
             });
         }
-        res.json(row);
-    });
+
+        // Map boolean back to int for frontend compatibility if needed
+        res.json({
+            ...settings,
+            notifications_enabled: settings.notifications_enabled ? 1 : 0
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'Database error', error: err.message });
+    }
 });
 
 // Update Settings
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
     const { coverage_threshold, complexity_threshold, security_strictness, notifications_enabled, rtm_strictness } = req.body;
     const userId = req.user.userId;
 
-    db.run(`INSERT INTO settings (user_id, coverage_threshold, complexity_threshold, security_strictness, notifications_enabled, rtm_strictness)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET
-            coverage_threshold = excluded.coverage_threshold,
-            complexity_threshold = excluded.complexity_threshold,
-            security_strictness = excluded.security_strictness,
-            notifications_enabled = excluded.notifications_enabled,
-            rtm_strictness = excluded.rtm_strictness`,
-        [userId, coverage_threshold, complexity_threshold, security_strictness, notifications_enabled, rtm_strictness || 'Strict'],
-        function (err) {
-            if (err) return res.status(500).json({ message: 'Database error: ' + err.message });
-            res.json({ message: 'Settings updated successfully' });
-        }
-    );
+    try {
+        await Setting.findOneAndUpdate(
+            { user_id: userId },
+            {
+                coverage_threshold,
+                complexity_threshold,
+                security_strictness,
+                notifications_enabled: !!notifications_enabled,
+                rtm_strictness: rtm_strictness || 'Strict',
+                updated_at: Date.now()
+            },
+            { upsert: true, new: true }
+        );
+
+        res.json({ message: 'Settings updated successfully' });
+    } catch (err) {
+        res.status(500).json({ message: 'Database error: ' + err.message });
+    }
 });
 
 module.exports = router;

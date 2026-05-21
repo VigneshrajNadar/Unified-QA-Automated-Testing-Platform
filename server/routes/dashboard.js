@@ -1,6 +1,8 @@
 const express = require('express');
-const db = require('../database');
-const authenticateToken = require('../middleware/authMiddleware');
+const Project = require('../models/Project');
+const TestCase = require('../models/TestCase');
+const TestRun = require('../models/TestRun');
+const Defect = require('../models/Defect');
 
 const router = express.Router();
 
@@ -9,56 +11,43 @@ router.get('/stats', async (req, res) => {
         const stats = {};
 
         // Basic Counts
-        stats.totalProjects = (await getAsync('SELECT COUNT(*) as count FROM projects')).count;
-        stats.totalTestCases = (await getAsync('SELECT COUNT(*) as count FROM test_cases')).count;
-        stats.totalRuns = (await getAsync('SELECT COUNT(*) as count FROM test_runs')).count;
-        stats.totalDefects = (await getAsync('SELECT COUNT(*) as count FROM defects')).count;
-        stats.openDefects = (await getAsync("SELECT COUNT(*) as count FROM defects WHERE status != 'Closed'")).count;
+        stats.totalProjects = await Project.countDocuments();
+        stats.totalTestCases = await TestCase.countDocuments();
+        stats.totalRuns = await TestRun.countDocuments();
+        stats.totalDefects = await Defect.countDocuments();
+        stats.openDefects = await Defect.countDocuments({ status: { $ne: 'Closed' } });
 
         // Chart Data: Defects by Severity
-        stats.defectsBySeverity = await getAllAsync(`
-            SELECT severity as name, COUNT(*) as value 
-            FROM defects 
-            GROUP BY severity
-        `);
+        const defectsAggr = await Defect.aggregate([
+            { $group: { _id: "$severity", value: { $sum: 1 } } },
+            { $project: { name: "$_id", value: 1, _id: 0 } }
+        ]);
+        stats.defectsBySeverity = defectsAggr.filter(d => d.name);
 
         // Chart Data: Test Cases by Priority
-        stats.testCasesByPriority = await getAllAsync(`
-            SELECT priority as name, COUNT(*) as value 
-            FROM test_cases 
-            GROUP BY priority
-        `);
+        const casesAggr = await TestCase.aggregate([
+            { $group: { _id: "$priority", value: { $sum: 1 } } },
+            { $project: { name: "$_id", value: 1, _id: 0 } }
+        ]);
+        stats.testCasesByPriority = casesAggr.filter(c => c.name);
 
         // Chart Data: Recent Activity (Last 5 Test Runs)
-        stats.recentRuns = await getAllAsync(`
-            SELECT tr.name, p.name as project_name, tr.executed_at as created_at 
-            FROM test_runs tr
-            JOIN projects p ON tr.project_id = p.project_id
-            ORDER BY tr.executed_at DESC LIMIT 5
-        `);
+        const recentRuns = await TestRun.find()
+            .populate('project_id', 'name')
+            .sort({ created_at: -1 })
+            .limit(5)
+            .lean();
+
+        stats.recentRuns = recentRuns.map(run => ({
+            name: run.name,
+            project_name: run.project_id ? run.project_id.name : 'Unknown',
+            created_at: run.created_at
+        }));
 
         res.json(stats);
     } catch (err) {
         res.status(500).json({ message: 'Database error', error: err.message });
     }
 });
-
-function getAsync(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.get(sql, params, (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-        });
-    });
-}
-
-function getAllAsync(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.all(sql, params, (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows);
-        });
-    });
-}
 
 module.exports = router;

@@ -1,5 +1,5 @@
-const db = require('../database');
 const axios = require('axios');
+const SecurityScan = require('../models/SecurityScan');
 
 class SecurityService {
 
@@ -8,72 +8,55 @@ class SecurityService {
     // ==========================================
 
     async startSastScan(filename, codeContent) {
-        const self = this;
-        return new Promise((resolve, reject) => {
-            db.run(`INSERT INTO security_scans (target, scan_type, status) VALUES (?, 'SAST', 'Running')`,
-                [filename], function (err) {
-                    if (err) return reject(err);
-                    const scanId = this.lastID;
-                    self._performSastAnalysis(scanId, codeContent);
-                    resolve({ scanId, status: 'Running' });
-                });
+        const scan = new SecurityScan({
+            target: filename,
+            scan_type: 'SAST',
+            status: 'Running'
         });
+
+        await scan.save();
+
+        // Run analysis asynchronously
+        this._performSastAnalysis(scan._id, codeContent);
+        
+        return { scanId: scan._id, status: 'Running' };
     }
 
     async startDastScan(url) {
-        const self = this;
-        return new Promise((resolve, reject) => {
-            db.run(`INSERT INTO security_scans (target, scan_type, status) VALUES (?, 'DAST', 'Running')`,
-                [url], function (err) {
-                    if (err) return reject(err);
-                    const scanId = this.lastID;
-                    self._performDastAnalysis(scanId, url);
-                    resolve({ scanId, status: 'Running' });
-                });
+        const scan = new SecurityScan({
+            target: url,
+            scan_type: 'DAST',
+            status: 'Running'
         });
+
+        await scan.save();
+
+        // Run analysis asynchronously
+        this._performDastAnalysis(scan._id, url);
+        
+        return { scanId: scan._id, status: 'Running' };
     }
 
     async getScans() {
-        return new Promise((resolve, reject) => {
-            db.all(`SELECT * FROM security_scans ORDER BY scanned_at DESC`, (err, rows) => {
-                if (err) reject(err);
-                else resolve(rows);
-            });
-        });
+        const scans = await SecurityScan.find().sort({ scanned_at: -1 }).lean();
+        return scans.map(s => ({ ...s, scan_id: s._id }));
     }
 
     async getScanDetails(scanId) {
-        return new Promise((resolve, reject) => {
-            db.get(`SELECT * FROM security_scans WHERE scan_id = ?`, [scanId], (err, scan) => {
-                if (err) return reject(err);
-                if (!scan) return resolve(null);
-
-                db.all(`SELECT * FROM security_findings WHERE scan_id = ?`, [scanId], (err, findings) => {
-                    if (err) return reject(err);
-                    scan.findings = findings;
-                    resolve(scan);
-                });
-            });
-        });
+        const scan = await SecurityScan.findById(scanId).lean();
+        if (!scan) return null;
+        return { ...scan, scan_id: scan._id };
     }
 
     async deleteScan(scanId) {
-        return new Promise((resolve, reject) => {
-            db.run(`DELETE FROM security_findings WHERE scan_id = ?`, [scanId], (err) => {
-                if (err) return reject(err);
-                db.run(`DELETE FROM security_scans WHERE scan_id = ?`, [scanId], (err) => {
-                    if (err) reject(err);
-                    else resolve();
-                });
-            });
-        });
+        await SecurityScan.findByIdAndDelete(scanId);
     }
 
     // ==========================================
     // SAST ENGINE (Static Analysis)
     // ==========================================
 
-    _performSastAnalysis(scanId, code) {
+    async _performSastAnalysis(scanId, code) {
         const findings = [];
         const lines = code.split('\n');
 
@@ -104,7 +87,7 @@ class SecurityService {
             patterns.forEach(pattern => {
                 if (pattern.regex.test(line)) {
                     findings.push({
-                        type: pattern.type,
+                        vulnerability_type: pattern.type,
                         severity: pattern.severity,
                         description: `[SAST] ${pattern.type} detected`,
                         location: `Line ${index + 1}: ${line.trim().substring(0, 80)}...`,
@@ -117,7 +100,7 @@ class SecurityService {
         // JWT Token Check (Heuristic)
         if (/ey[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+/.test(code)) {
             findings.push({
-                type: 'Hardcoded JWT Token',
+                vulnerability_type: 'Hardcoded JWT Token',
                 severity: 'High',
                 description: 'A dedicated JWT token string was found in the code.',
                 location: 'Found likely JWT string',
@@ -128,7 +111,7 @@ class SecurityService {
         // Private IP Check (Code)
         if (/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)/.test(code)) {
             findings.push({
-                type: 'Internal IP in Code',
+                vulnerability_type: 'Internal IP in Code',
                 severity: 'Low',
                 description: 'Hardcoded internal IP address found.',
                 location: 'Found internal IP',
@@ -136,7 +119,7 @@ class SecurityService {
             });
         }
 
-        this._saveResults(scanId, findings);
+        await this._saveResults(scanId, findings);
     }
 
     // ==========================================
@@ -160,7 +143,7 @@ class SecurityService {
                         res.data.toString().includes('INSERT INTO') ||
                         res.headers['content-type'].includes('application/json')
                     )) {
-                        findings.push({ type: 'Sensitive File Exposure', severity: 'Critical', description: `Exposed ${file} file accessible publicly.`, remediation: `Configure server to deny access to .${file} files.`, location: fileUrl });
+                        findings.push({ vulnerability_type: 'Sensitive File Exposure', severity: 'Critical', description: `Exposed ${file} file accessible publicly.`, remediation: `Configure server to deny access to .${file} files.`, location: fileUrl });
                     }
                 } catch (e) { /* Ignore */ }
             }
@@ -170,7 +153,7 @@ class SecurityService {
                 const traversalUrl = `${baseUrl}/../../../../etc/passwd`;
                 const res = await axios.get(traversalUrl, { validateStatus: () => true });
                 if (res.status === 200 && (res.data.toString().includes('root:x:') || res.data.toString().includes('[extensions]'))) {
-                    findings.push({ type: 'Directory Traversal', severity: 'Critical', description: 'Path traversal vulnerability detected (LFI).', remediation: 'Sanitize file path inputs and disable directory listing.', location: traversalUrl });
+                    findings.push({ vulnerability_type: 'Directory Traversal', severity: 'Critical', description: 'Path traversal vulnerability detected (LFI).', remediation: 'Sanitize file path inputs and disable directory listing.', location: traversalUrl });
                 }
             } catch (err) { /* Ignore */ }
 
@@ -181,7 +164,7 @@ class SecurityService {
                     const adminUrl = `${baseUrl}${path}`;
                     const res = await axios.get(adminUrl, { validateStatus: () => true });
                     if (res.status === 200) {
-                        findings.push({ type: 'Exposed Admin Panel', severity: 'Info', description: `Admin panel accessible at ${path}`, remediation: 'Restrict access to admin panels via IP allowlist or VPN.', location: adminUrl });
+                        findings.push({ vulnerability_type: 'Exposed Admin Panel', severity: 'Info', description: `Admin panel accessible at ${path}`, remediation: 'Restrict access to admin panels via IP allowlist or VPN.', location: adminUrl });
                     }
                 } catch (err) { /* Ignore */ }
             }
@@ -191,31 +174,31 @@ class SecurityService {
                 const res = await axios.get(url, { validateStatus: () => true });
                 const headers = res.headers;
 
-                if (!headers['content-security-policy']) findings.push({ type: 'Missing Header', severity: 'Medium', description: 'Content-Security-Policy header is missing', remediation: 'Configure CSP to prevent XSS.' });
-                if (!headers['x-frame-options']) findings.push({ type: 'Missing Header', severity: 'Low', description: 'X-Frame-Options header is missing', remediation: 'Set X-Frame-Options to DENY or SAMEORIGIN.' });
-                if (!headers['strict-transport-security']) findings.push({ type: 'Missing Header', severity: 'High', description: 'Strict-Transport-Security (HSTS) missing', remediation: 'Enforce HTTPS using HSTS.' });
-                if (headers['server'] || headers['x-powered-by']) findings.push({ type: 'Info Leakage', severity: 'Low', description: 'Server/X-Powered-By header exposes backend technology.', remediation: 'Remove or obfuscate server banner headers.' });
+                if (!headers['content-security-policy']) findings.push({ vulnerability_type: 'Missing Header', severity: 'Medium', description: 'Content-Security-Policy header is missing', remediation: 'Configure CSP to prevent XSS.' });
+                if (!headers['x-frame-options']) findings.push({ vulnerability_type: 'Missing Header', severity: 'Low', description: 'X-Frame-Options header is missing', remediation: 'Set X-Frame-Options to DENY or SAMEORIGIN.' });
+                if (!headers['strict-transport-security']) findings.push({ vulnerability_type: 'Missing Header', severity: 'High', description: 'Strict-Transport-Security (HSTS) missing', remediation: 'Enforce HTTPS using HSTS.' });
+                if (headers['server'] || headers['x-powered-by']) findings.push({ vulnerability_type: 'Info Leakage', severity: 'Low', description: 'Server/X-Powered-By header exposes backend technology.', remediation: 'Remove or obfuscate server banner headers.' });
 
                 if (headers['access-control-allow-origin'] === '*') {
-                    findings.push({ type: 'Insecure CORS', severity: 'Medium', description: 'Access-Control-Allow-Origin is set to wildcard (*)', remediation: 'Restrict CORS to trusted domains.', location: 'Header: Access-Control-Allow-Origin' });
+                    findings.push({ vulnerability_type: 'Insecure CORS', severity: 'Medium', description: 'Access-Control-Allow-Origin is set to wildcard (*)', remediation: 'Restrict CORS to trusted domains.', location: 'Header: Access-Control-Allow-Origin' });
                 }
 
                 const cookies = headers['set-cookie'];
                 if (cookies) {
                     cookies.forEach(cookie => {
-                        if (!cookie.includes('HttpOnly')) findings.push({ type: 'Insecure Cookie', severity: 'Low', description: 'Cookie missing HttpOnly flag', remediation: 'Set HttpOnly flag to prevent XSS theft.', location: `Cookie: ${cookie.substring(0, 20)}...` });
-                        if (!cookie.includes('Secure') && url.startsWith('https')) findings.push({ type: 'Insecure Cookie', severity: 'Low', description: 'Cookie missing Secure flag (on HTTPS)', remediation: 'Set Secure flag to ensure cookie is only sent over HTTPS.', location: `Cookie: ${cookie.substring(0, 20)}...` });
+                        if (!cookie.includes('HttpOnly')) findings.push({ vulnerability_type: 'Insecure Cookie', severity: 'Low', description: 'Cookie missing HttpOnly flag', remediation: 'Set HttpOnly flag to prevent XSS theft.', location: `Cookie: ${cookie.substring(0, 20)}...` });
+                        if (!cookie.includes('Secure') && url.startsWith('https')) findings.push({ vulnerability_type: 'Insecure Cookie', severity: 'Low', description: 'Cookie missing Secure flag (on HTTPS)', remediation: 'Set Secure flag to ensure cookie is only sent over HTTPS.', location: `Cookie: ${cookie.substring(0, 20)}...` });
                     });
                 }
 
                 const body = JSON.stringify(res.data);
                 const emails = body.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
                 if (emails && emails.length > 0) {
-                    findings.push({ type: 'Privacy Leak', severity: 'Medium', description: `Found ${emails.length} email addresses in response body.`, remediation: 'Mask or remove PII from responses.', location: `Emails: ${emails.slice(0, 3).join(', ')}` });
+                    findings.push({ vulnerability_type: 'Privacy Leak', severity: 'Medium', description: `Found ${emails.length} email addresses in response body.`, remediation: 'Mask or remove PII from responses.', location: `Emails: ${emails.slice(0, 3).join(', ')}` });
                 }
                 const privateIps = body.match(/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)/g);
                 if (privateIps && privateIps.length > 0) {
-                    findings.push({ type: 'Internal IP Disclosure', severity: 'Low', description: 'Internal IP addresses revealed in response.', remediation: 'Hide internal infrastructure details.', location: `IPs: ${privateIps.slice(0, 3).join(', ')}` });
+                    findings.push({ vulnerability_type: 'Internal IP Disclosure', severity: 'Low', description: 'Internal IP addresses revealed in response.', remediation: 'Hide internal infrastructure details.', location: `IPs: ${privateIps.slice(0, 3).join(', ')}` });
                 }
 
             } catch (err) { /* Ignore */ }
@@ -225,7 +208,7 @@ class SecurityService {
                 try {
                     const res = await axios.get(url, { validateStatus: () => true });
                     if (res.data.toString().includes('http://')) {
-                        findings.push({ type: 'Mixed Content', severity: 'Medium', description: 'HTTPS page contains insecure HTTP resources', remediation: 'Load all resources via HTTPS.', location: 'Found http:// links' });
+                        findings.push({ vulnerability_type: 'Mixed Content', severity: 'Medium', description: 'HTTPS page contains insecure HTTP resources', remediation: 'Load all resources via HTTPS.', location: 'Found http:// links' });
                     }
                 } catch (e) { }
             }
@@ -237,12 +220,12 @@ class SecurityService {
                     const testUrl = url.includes('?') ? `${url}&test=${encodeURIComponent(payload)}` : `${url}?test=${encodeURIComponent(payload)}`;
                     const res = await axios.get(testUrl);
                     if (res.data && (res.data.toString().includes('SQL syntax') || res.data.toString().includes('mysql_fetch'))) {
-                        findings.push({ type: 'SQL Injection', severity: 'Critical', description: `Database error triggered by payload: ${payload}`, remediation: 'Sanitize all inputs and use prepared statements.', location: `Query Param` });
+                        findings.push({ vulnerability_type: 'SQL Injection', severity: 'Critical', description: `Database error triggered by payload: ${payload}`, remediation: 'Sanitize all inputs and use prepared statements.', location: `Query Param` });
                         break;
                     }
                 } catch (err) {
                     if (err.response && err.response.status === 500) {
-                        findings.push({ type: 'Possible SQL Injection', severity: 'High', description: 'Server returned 500 Error on injection payload', remediation: 'Investigate error logs for DB queries.' });
+                        findings.push({ vulnerability_type: 'Possible SQL Injection', severity: 'High', description: 'Server returned 500 Error on injection payload', remediation: 'Investigate error logs for DB queries.' });
                         break;
                     }
                 }
@@ -254,7 +237,7 @@ class SecurityService {
                 const testUrl = url.includes('?') ? `${url}&q=${encodeURIComponent(xssPayload)}` : `${url}?q=${encodeURIComponent(xssPayload)}`;
                 const res = await axios.get(testUrl);
                 if (res.data && res.data.toString().includes(xssPayload)) {
-                    findings.push({ type: 'Reflected XSS', severity: 'High', description: 'XSS payload returned unsanitized', remediation: 'Escape all user input before outputting to HTML.', location: 'Query Param: q' });
+                    findings.push({ vulnerability_type: 'Reflected XSS', severity: 'High', description: 'XSS payload returned unsanitized', remediation: 'Escape all user input before outputting to HTML.', location: 'Query Param: q' });
                 }
             } catch (err) { /* Ignore */ }
 
@@ -262,29 +245,32 @@ class SecurityService {
             console.error("DAST Critical Error", e);
         }
 
-        this._saveResults(scanId, findings);
+        await this._saveResults(scanId, findings);
     }
 
-    _saveResults(scanId, findings) {
+    async _saveResults(scanId, findings) {
         if (!scanId) return;
         let critical = 0, high = 0, medium = 0, low = 0;
-
-        const stmt = db.prepare(`INSERT INTO security_findings (scan_id, vulnerability_type, severity, description, location, remediation) VALUES (?, ?, ?, ?, ?, ?)`);
 
         findings.forEach(f => {
             if (f.severity === 'Critical') critical++;
             else if (f.severity === 'High') high++;
             else if (f.severity === 'Medium') medium++;
             else low++;
-            stmt.run([scanId, f.type, f.severity, f.description, f.location || 'Unknown', f.remediation]);
         });
-        stmt.finalize();
 
         let score = (critical * 25) + (high * 15) + (medium * 5) + (low * 1);
         if (score > 100) score = 100;
 
-        db.run(`UPDATE security_scans SET status = 'Completed', risk_score = ?, critical_count = ?, high_count = ?, medium_count = ?, low_count = ? WHERE scan_id = ?`,
-            [score, critical, high, medium, low, scanId]);
+        await SecurityScan.findByIdAndUpdate(scanId, {
+            status: 'Completed',
+            risk_score: score,
+            critical_count: critical,
+            high_count: high,
+            medium_count: medium,
+            low_count: low,
+            findings: findings
+        });
     }
 }
 

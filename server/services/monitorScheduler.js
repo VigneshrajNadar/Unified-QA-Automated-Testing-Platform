@@ -1,6 +1,7 @@
 const cron = require('node-cron');
-const db = require('../database');
-const { executeMultipleRequests, executeApiRequest } = require('./apiExecutor');
+const ApiMonitor = require('../models/ApiMonitor');
+const ApiCollection = require('../models/ApiCollection');
+const { executeMultipleRequests } = require('./apiExecutor');
 
 // Store active cron tasks
 const activeTasks = {};
@@ -9,7 +10,7 @@ const activeTasks = {};
  * Initialize Scheduler
  * Loads active monitors from DB and schedules them
  */
-function initScheduler() {
+async function initScheduler() {
     console.log('⏰ Initializing API Monitor Scheduler...');
 
     // Clear existing tasks if any (for hot reload)
@@ -17,17 +18,21 @@ function initScheduler() {
         if (activeTasks[id]) activeTasks[id].stop();
     });
 
-    const sql = `SELECT * FROM api_monitors WHERE is_active = 1`;
-
-    db.all(sql, [], (err, monitors) => {
-        if (err) {
-            console.error('Error loading monitors:', err.message);
-            return;
-        }
-
+    try {
+        const monitors = await ApiMonitor.find({ is_active: true }).lean();
         console.log(`Found ${monitors.length} active monitors.`);
-        monitors.forEach(monitor => scheduleMonitor(monitor));
-    });
+        
+        monitors.forEach(monitor => {
+            // Mapping for compatibility
+            const monitorObj = {
+                ...monitor,
+                monitor_id: monitor._id.toString()
+            };
+            scheduleMonitor(monitorObj);
+        });
+    } catch (err) {
+        console.error('Error loading monitors:', err.message);
+    }
 }
 
 /**
@@ -51,56 +56,36 @@ function scheduleMonitor(monitor) {
         console.log(`🚀 Running Monitor #${monitor.monitor_id}: ${monitor.name}`);
 
         try {
-            // Update last run time
-            db.run(`UPDATE api_monitors SET last_run = CURRENT_TIMESTAMP WHERE monitor_id = ?`, [monitor.monitor_id]);
+            await ApiMonitor.findByIdAndUpdate(monitor.monitor_id, { updated_at: Date.now() });
 
-            // Get Requests
-            const requestsSql = `SELECT * FROM api_requests WHERE collection_id = ? ORDER BY request_id ASC`;
+            const collection = await ApiCollection.findById(monitor.collection_id);
+            if (!collection || !collection.requests || collection.requests.length === 0) {
+                console.error(`Monitor #${monitor.monitor_id} failed: No requests found.`);
+                return;
+            }
 
-            db.all(requestsSql, [monitor.collection_id], async (err, requests) => {
-                if (err || !requests || requests.length === 0) {
-                    console.error(`Monitor #${monitor.monitor_id} failed: No requests or DB error.`);
-                    return;
-                }
+            const reqsObj = collection.requests.map(r => ({ ...r.toObject(), request_id: r._id }));
+            const results = await executeMultipleRequests(reqsObj);
 
-                // Execute Requests
-                // We use executeMultipleRequests but we assume it doesn't save to DB directly?
-                // Wait, executeMultipleRequests doesn't save results, apiTesting.js does.
-                // Actually, apiTesting.js calls executeMultipleRequests then saves.
-                // So we need to save results manually here.
+            let successCount = 0;
 
-                const results = await executeMultipleRequests(requests);
+            for (const result of results) {
+                if (result.success) successCount++;
 
-                // Save Results with monitor_id
-                const saveSql = `
-                    INSERT INTO api_test_results 
-                    (request_id, status_code, response_time_ms, response_body, response_headers, success, schema_valid, error_message, monitor_id, executed_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                `;
-
-                let successCount = 0;
-
-                results.forEach(result => {
-                    if (result.success) successCount++;
-
-                    db.run(saveSql, [
-                        result.request_id,
-                        result.status_code,
-                        result.response_time_ms,
-                        result.response_body,
-                        result.response_headers,
-                        result.success,
-                        null, // schema_valid (skipping for monitors for now)
-                        result.error_message,
-                        monitor.monitor_id
-                    ], (err) => {
-                        if (err) console.error(`Failed to save result for monitor #${monitor.monitor_id}:`, err.message);
+                const request = collection.requests.id(result.request_id);
+                if (request) {
+                    request.results.push({
+                        status_code: result.status_code,
+                        response_time: result.response_time_ms,
+                        response_body: result.response_body,
+                        passed: result.success
                     });
-                });
+                }
+            }
 
-                console.log(`✅ Monitor #${monitor.monitor_id} Finished. ${successCount}/${results.length} Passed.`);
-            });
+            await collection.save();
 
+            console.log(`✅ Monitor #${monitor.monitor_id} Finished. ${successCount}/${results.length} Passed.`);
         } catch (error) {
             console.error(`Monitor #${monitor.monitor_id} crashed:`, error);
         }

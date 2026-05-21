@@ -1,9 +1,9 @@
 const webdriver = require('selenium-webdriver');
 const { Builder, By } = require('selenium-webdriver');
 const axios = require('axios');
-const db = require('../database');
+const WebMonitorJob = require('../models/WebMonitorJob');
 
-const GRID_URL = 'http://localhost:4444/wd/hub';
+const GRID_URL = process.env.SELENIUM_GRID_URL || 'http://localhost:4444/wd/hub';
 
 class WebMonitorService {
 
@@ -17,7 +17,7 @@ class WebMonitorService {
 
         try {
             // Update status to Running
-            db.run(`UPDATE monitoring_jobs SET status = 'Running' WHERE job_id = ?`, [jobId]);
+            await WebMonitorJob.findByIdAndUpdate(jobId, { status: 'Running' });
 
             // 1. Start Selenium Session
             const caps = { browserName: 'chrome' }; // Use Chrome for scanning
@@ -72,7 +72,7 @@ class WebMonitorService {
 
         } catch (error) {
             console.error('[WebMonitor] Scan Failed:', error);
-            db.run(`UPDATE monitoring_jobs SET status = 'Failed' WHERE job_id = ?`, [jobId]);
+            await WebMonitorJob.findByIdAndUpdate(jobId, { status: 'Failed' });
         } finally {
             if (driver) await driver.quit();
         }
@@ -96,11 +96,9 @@ class WebMonitorService {
         for (let i = 0; i < totalLinks; i++) {
             const isBroken = i < brokenLinks;
             linkResults.push({
-                url: `${url}/page-${i}`,
-                statusCode: isBroken ? 404 : 200,
-                status: isBroken ? 'Broken' : 'Valid',
-                responseTime: Math.floor(Math.random() * 200) + 50,
-                error: isBroken ? 'Not Found' : null
+                link_url: `${url}/page-${i}`,
+                status_code: isBroken ? 404 : 200,
+                status: isBroken ? 'Broken' : 'Passed'
             });
         }
 
@@ -112,44 +110,34 @@ class WebMonitorService {
         const start = Date.now();
         try {
             const response = await axios.get(url, { timeout: 5000, validateStatus: () => true });
-            const duration = Date.now() - start;
-
-            let status = 'Valid';
+            
+            let status = 'Passed';
             if (response.status >= 400) status = 'Broken';
-            if (response.status >= 300 && response.status < 400) status = 'Redirect';
+            if (response.status >= 300 && response.status < 400) status = 'Passed'; // Redirects are acceptable for now
 
             return {
-                url,
-                statusCode: response.status,
-                status,
-                responseTime: duration,
-                error: null
+                link_url: url,
+                status_code: response.status,
+                status: status
             };
         } catch (err) {
             return {
-                url,
-                statusCode: 0,
-                status: 'Broken',
-                responseTime: Date.now() - start,
-                error: err.message
+                link_url: url,
+                status_code: 0,
+                status: 'Broken'
             };
         }
     }
 
-    async saveResults(jobId, healthScore, totalLinks, brokenLinks, duration, results) {
-        return new Promise((resolve, reject) => {
-            db.serialize(() => {
-                // Update Job
-                db.run(`UPDATE monitoring_jobs SET status = 'Completed', health_score = ?, total_links = ?, broken_links = ?, scan_duration = ? WHERE job_id = ?`,
-                    [healthScore, totalLinks, brokenLinks, duration, jobId]);
-
-                // Insert Link Results (Batch or Loop)
-                const stmt = db.prepare(`INSERT INTO link_validation_results (job_id, url, status_code, status, response_time, error_message) VALUES (?, ?, ?, ?, ?, ?)`);
-                results.forEach(r => {
-                    stmt.run(jobId, r.url, r.statusCode, r.status, r.responseTime, r.error);
-                });
-                stmt.finalize(resolve);
-            });
+    async saveResults(jobId, healthScore, totalLinks, brokenLinks, duration, linkResults) {
+        await WebMonitorJob.findByIdAndUpdate(jobId, {
+            status: 'Completed',
+            health_score: healthScore,   // primary field
+            seo_score: healthScore,      // legacy alias
+            total_links: totalLinks,
+            broken_links: brokenLinks,
+            links: linkResults,
+            completed_at: Date.now()
         });
     }
 }

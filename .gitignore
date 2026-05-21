@@ -1,8 +1,53 @@
-node_modules
-dist
-build
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Build output
+client/dist/
+client/build/
+
+# Environment files - NEVER commit these
 .env
-.DS_Store
-__pycache__
-*.pyc
+.env.local
+.env.production
+.env.development
+server/.env
+client/.env
+
+# Database files - data is in MongoDB, don't push SQLite
+server/qa_tool.sqlite
+server/meghana.db
+server/*.sqlite
+server/*.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temp files
 temp_uploads/
+server/temp_uploads/
+server/uploads/artifacts/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker volumes (not needed in repo)
+mongodb_data/

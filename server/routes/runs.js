@@ -1,195 +1,184 @@
 const express = require('express');
-const db = require('../database');
-const authenticateToken = require('../middleware/authMiddleware');
+const TestSuite = require('../models/TestSuite');
+const TestRun = require('../models/TestRun');
+const Defect = require('../models/Defect');
 
 const router = express.Router();
 
 // --- Test Suites ---
 
 // Create Test Suite
-router.post('/suites', (req, res) => {
+router.post('/suites', async (req, res) => {
     const { project_id, name, description, test_case_ids } = req.body;
 
     if (!project_id || !name) return res.status(400).json({ message: 'Project and Name are required' });
 
-    db.run(`INSERT INTO test_suites (project_id, name, description) VALUES (?, ?, ?)`,
-        [project_id, name, description], function (err) {
-            if (err) return res.status(500).json({ message: 'Database error', error: err.message });
-
-            const suiteId = this.lastID;
-
-            if (test_case_ids && Array.isArray(test_case_ids) && test_case_ids.length > 0) {
-                const placeholders = test_case_ids.map(() => '(?, ?)').join(',');
-                const values = [];
-                test_case_ids.forEach(tcId => values.push(suiteId, tcId));
-
-                db.run(`INSERT INTO test_suite_cases (test_suite_id, test_case_id) VALUES ${placeholders}`, values);
-            }
-
-            res.status(201).json({ message: 'Test Suite created', suiteId });
+    try {
+        const newSuite = new TestSuite({
+            project_id,
+            name,
+            description,
+            test_cases: test_case_ids || []
         });
+
+        await newSuite.save();
+        res.status(201).json({ message: 'Test Suite created', suiteId: newSuite._id });
+    } catch (error) {
+        res.status(500).json({ message: 'Database error', error: error.message });
+    }
 });
 
 // Get Suites by Project
-router.get('/suites', (req, res) => {
+router.get('/suites', async (req, res) => {
     const { project_id } = req.query;
     if (!project_id) return res.status(400).json({ message: 'Project ID is required' });
 
-    db.all(`SELECT * FROM test_suites WHERE project_id = ? ORDER BY test_suite_id DESC`, [project_id], (err, rows) => {
-        if (err) return res.status(500).json({ message: 'Database error' });
-        res.json(rows);
-    });
+    try {
+        const suites = await TestSuite.find({ project_id }).sort({ created_at: -1 });
+        // Map _id to test_suite_id for frontend compatibility
+        res.json(suites.map(s => ({ ...s.toObject(), test_suite_id: s._id })));
+    } catch (error) {
+        res.status(500).json({ message: 'Database error', error: error.message });
+    }
 });
 
 // --- Test Runs ---
 
 // Get Runs (List)
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     const { project_id } = req.query;
-    let sql = `SELECT tr.*, ts.name as suite_name, u.name as executed_by_name 
-               FROM test_runs tr 
-               JOIN test_suites ts ON tr.test_suite_id = ts.test_suite_id
-               LEFT JOIN users u ON tr.executed_by = u.user_id
-               WHERE 1=1`;
-    const params = [];
+    
+    try {
+        let filter = {};
+        if (project_id) filter.project_id = project_id;
 
-    if (project_id) {
-        sql += ` AND tr.project_id = ?`;
-        params.push(project_id);
+        const runs = await TestRun.find(filter)
+            .populate('test_suite_id', 'name')
+            .populate('created_by', 'name')
+            .sort({ created_at: -1 })
+            .lean();
+
+        const formatted = runs.map(run => ({
+            ...run,
+            test_run_id: run._id,
+            suite_name: run.test_suite_id ? run.test_suite_id.name : 'Unknown',
+            executed_by_name: run.created_by ? run.created_by.name : 'Unknown'
+        }));
+
+        res.json(formatted);
+    } catch (error) {
+        res.status(500).json({ message: 'Database error', error: error.message });
     }
-
-    sql += ` ORDER BY tr.test_run_id DESC`;
-
-    db.all(sql, params, (err, rows) => {
-        if (err) return res.status(500).json({ message: 'Database error' });
-        res.json(rows);
-    });
 });
 
 // Create Test Run
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
     const { project_id, test_suite_id, name } = req.body;
 
     if (!project_id || !test_suite_id || !name) return res.status(400).json({ message: 'Required fields missing' });
 
-    db.run(`INSERT INTO test_runs (project_id, test_suite_id, name, executed_by) VALUES (?, ?, ?, ?)`,
-        [project_id, test_suite_id, name, req.user.userId], function (err) {
-            if (err) return res.status(500).json({ message: 'Database error', error: err.message });
+    try {
+        const suite = await TestSuite.findById(test_suite_id);
+        if (!suite) return res.status(404).json({ message: 'Test Suite not found' });
 
-            const runId = this.lastID;
+        const results = suite.test_cases.map(tcId => ({
+            test_case_id: tcId,
+            status: 'Not Run'
+        }));
 
-            // Initialize results for all cases in the suite
-            db.all(`SELECT test_case_id FROM test_suite_cases WHERE test_suite_id = ?`, [test_suite_id], (err, cases) => {
-                if (cases && cases.length > 0) {
-                    const placeholders = cases.map(() => '(?, ?, ?)').join(',');
-                    const values = [];
-                    cases.forEach(c => values.push(runId, c.test_case_id, 'Not Run'));
-
-                    db.run(`INSERT INTO test_run_results (test_run_id, test_case_id, status) VALUES ${placeholders}`, values);
-                }
-            });
-
-            res.status(201).json({ message: 'Test Run created', runId });
+        const newRun = new TestRun({
+            project_id,
+            test_suite_id,
+            name,
+            created_by: req.user ? req.user.userId : null,
+            results
         });
+
+        await newRun.save();
+        res.status(201).json({ message: 'Test Run created', runId: newRun._id });
+    } catch (error) {
+        res.status(500).json({ message: 'Database error', error: error.message });
+    }
 });
 
 // Get Run Details (with results)
-router.get('/:id', (req, res) => {
-    const runId = req.params.id;
+router.get('/:id', async (req, res) => {
+    try {
+        const run = await TestRun.findById(req.params.id)
+            .populate('test_suite_id', 'name')
+            .populate('created_by', 'name')
+            .populate({
+                path: 'results.test_case_id',
+                select: 'title priority'
+            })
+            .lean();
 
-    db.get(`SELECT tr.*, ts.name as suite_name, u.name as executed_by_name 
-            FROM test_runs tr 
-            JOIN test_suites ts ON tr.test_suite_id = ts.test_suite_id
-            LEFT JOIN users u ON tr.executed_by = u.user_id
-            WHERE tr.test_run_id = ?`, [runId], (err, run) => {
-        if (err || !run) return res.status(404).json({ message: 'Run not found' });
+        if (!run) return res.status(404).json({ message: 'Run not found' });
 
-        db.all(`SELECT trr.*, tc.title, tc.priority 
-                FROM test_run_results trr 
-                JOIN test_cases tc ON trr.test_case_id = tc.test_case_id 
-                WHERE trr.test_run_id = ?`, [runId], (err, results) => {
-            res.json({ ...run, results });
+        // Flatten results for frontend
+        const formattedResults = run.results.map(r => ({
+            ...r,
+            test_case_id: r.test_case_id ? r.test_case_id._id : null,
+            title: r.test_case_id ? r.test_case_id.title : 'Deleted Case',
+            priority: r.test_case_id ? r.test_case_id.priority : 'Unknown'
+        }));
+
+        res.json({
+            ...run,
+            test_run_id: run._id,
+            suite_name: run.test_suite_id ? run.test_suite_id.name : 'Unknown',
+            executed_by_name: run.created_by ? run.created_by.name : 'Unknown',
+            results: formattedResults
         });
-    });
+    } catch (error) {
+        res.status(500).json({ message: 'Database error', error: error.message });
+    }
 });
 
 // Update Result (Execute)
-router.post('/:id/results', (req, res) => {
+router.post('/:id/results', async (req, res) => {
     const runId = req.params.id;
     const { test_case_id, status, actual_result, comments } = req.body;
 
-    db.run(`UPDATE test_run_results SET status = ?, actual_result = ?, comments = ? 
-            WHERE test_run_id = ? AND test_case_id = ?`,
-        [status, actual_result, comments, runId, test_case_id], function (err) {
-            if (err) return res.status(500).json({ message: 'Database error' });
-            res.json({ message: 'Result updated' });
-        });
+    try {
+        const run = await TestRun.findOneAndUpdate(
+            { _id: runId, "results.test_case_id": test_case_id },
+            { 
+                $set: { 
+                    "results.$.status": status,
+                    "results.$.actual_result": actual_result,
+                    "results.$.comments": comments
+                }
+            },
+            { new: true }
+        );
+
+        if (!run) return res.status(404).json({ message: 'Run or Test Case not found' });
+        res.json({ message: 'Result updated' });
+    } catch (error) {
+        res.status(500).json({ message: 'Database error', error: error.message });
+    }
 });
 
-// Get static issues for a run
-router.get('/:id/static-issues', (req, res) => {
-    db.all('SELECT * FROM static_issues WHERE run_id = ?', [req.params.id], (err, rows) => {
-        if (err) return res.status(500).json({ message: 'Database error' });
-        res.json(rows || []);
-    });
-});
-
-// Get security issues for a run
-router.get('/:id/security-issues', (req, res) => {
-    db.all('SELECT * FROM security_issues WHERE run_id = ?', [req.params.id], (err, rows) => {
-        if (err) return res.status(500).json({ message: 'Database error' });
-        res.json(rows || []);
-    });
-});
-
-
-
-// Get complexity metrics for a run
-router.get('/:id/complexity-metrics', (req, res) => {
-    db.all('SELECT * FROM complexity_metrics WHERE run_id = ?', [req.params.id], (err, rows) => {
-        if (err) return res.status(500).json({ message: 'Database error' });
-        res.json(rows || []);
-    });
-});
-
-// Get coverage summary for a run
-router.get('/:id/coverage-summary', (req, res) => {
-    db.get('SELECT * FROM coverage_summary WHERE run_id = ?', [req.params.id], (err, row) => {
-        if (err) return res.status(500).json({ message: 'Database error' });
-        res.json(row || null);
-    });
-});
-
-// Get test type results for a run
-router.get('/:id/test-type-results', (req, res) => {
-    db.all('SELECT * FROM test_type_results WHERE run_id = ?', [req.params.id], (err, rows) => {
-        if (err) return res.status(500).json({ message: 'Database error' });
-        res.json(rows || []);
-    });
-});
+// Stubs for metrics that need more advanced modeling
+router.get('/:id/static-issues', (req, res) => res.json([]));
+router.get('/:id/security-issues', (req, res) => res.json([]));
+router.get('/:id/complexity-metrics', (req, res) => res.json([]));
+router.get('/:id/coverage-summary', (req, res) => res.json(null));
+router.get('/:id/test-type-results', (req, res) => res.json([]));
 
 // Compare two runs
 router.get('/compare/:runId1/:runId2', async (req, res) => {
     const { runId1, runId2 } = req.params;
 
     try {
-        const getDefects = (runId) => new Promise((resolve, reject) => {
-            db.all('SELECT * FROM defects WHERE test_run_id = ?', [runId], (err, rows) => {
-                if (err) reject(err);
-                else resolve(rows);
-            });
-        });
+        const [defects1, defects2] = await Promise.all([
+            Defect.find({ test_run_id: runId1 }).lean(),
+            Defect.find({ test_run_id: runId2 }).lean()
+        ]);
 
-        const [defects1, defects2] = await Promise.all([getDefects(runId1), getDefects(runId2)]);
-
-        // Identify new defects (in run2 but not run1)
-        // Matching by title for simplicity, ideally should use a unique signature
         const newDefects = defects2.filter(d2 => !defects1.some(d1 => d1.title === d2.title));
-
-        // Identify fixed defects (in run1 but not run2)
         const fixedDefects = defects1.filter(d1 => !defects2.some(d2 => d2.title === d1.title));
-
-        // Identify persistent defects
         const persistentDefects = defects2.filter(d2 => defects1.some(d1 => d1.title === d2.title));
 
         res.json({

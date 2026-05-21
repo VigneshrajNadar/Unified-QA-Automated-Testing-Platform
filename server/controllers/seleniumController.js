@@ -1,20 +1,54 @@
 const seleniumService = require('../services/seleniumService');
-const db = require('../database');
+const { SeleniumScript, SeleniumJob } = require('../models/Selenium');
 const path = require('path');
 
-exports.getDashboardData = (req, res) => {
-    const stats = {};
-    db.serialize(() => {
-        db.get(`SELECT count(*) as total_jobs FROM selenium_job_runs`, (err, row) => stats.total_jobs = row.total_jobs);
-        db.all(`SELECT j.*, s.name as script_name FROM selenium_job_runs j LEFT JOIN selenium_scripts s ON j.script_id = s.script_id ORDER BY j.created_at DESC LIMIT 5`, (err, rows) => stats.recent_jobs = rows);
-        db.all(`SELECT * FROM selenium_browser_executions ORDER BY start_time DESC LIMIT 10`, (err, rows) => {
-            stats.recent_executions = rows;
-            res.json(stats);
+exports.getDashboardData = async (req, res) => {
+    try {
+        const stats = {};
+        stats.total_jobs = await SeleniumJob.countDocuments();
+
+        const recentJobs = await SeleniumJob.find()
+            .populate('script_id', 'name')
+            .sort({ created_at: -1 })
+            .limit(5)
+            .lean();
+            
+        stats.recent_jobs = recentJobs.map(job => ({
+            ...job,
+            job_id: job._id,
+            script_name: job.script_id ? job.script_id.name : null
+        }));
+
+        // Flatten executions for recent executions list
+        const jobsWithExecutions = await SeleniumJob.find()
+            .sort({ "executions.start_time": -1 })
+            .limit(10)
+            .lean();
+
+        let recent_executions = [];
+        jobsWithExecutions.forEach(job => {
+            if (job.executions) {
+                job.executions.forEach(exe => {
+                    recent_executions.push({
+                        ...exe,
+                        execution_id: exe._id,
+                        job_id: job._id
+                    });
+                });
+            }
         });
-    });
+
+        // Sort manually after flattening and take top 10
+        recent_executions.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
+        stats.recent_executions = recent_executions.slice(0, 10);
+
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
 
-exports.uploadScript = (req, res) => {
+exports.uploadScript = async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'No script file uploaded' });
     }
@@ -22,69 +56,80 @@ exports.uploadScript = (req, res) => {
     const { name, description, user_id } = req.body;
     const filePath = req.file.path;
 
-    db.run(`INSERT INTO selenium_scripts (name, description, file_path, uploaded_by) VALUES (?, ?, ?, ?)`,
-        [name, description, filePath, user_id || 1],
-        function (err) {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ script_id: this.lastID, message: 'Script uploaded successfully' });
-        }
-    );
+    try {
+        const script = new SeleniumScript({
+            name,
+            description,
+            file_path: filePath,
+            uploaded_by: user_id || null
+        });
+
+        await script.save();
+        res.json({ script_id: script._id, message: 'Script uploaded successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
 
-exports.runTest = (req, res) => {
-    const { script_id, browsers, target_url, user_id } = req.body; // browsers = ['chrome', 'firefox']
+exports.runTest = async (req, res) => {
+    const { script_id, browsers, target_url, user_id } = req.body;
 
     if (!script_id || !browsers || browsers.length === 0) {
         return res.status(400).json({ error: 'Missing script_id or browsers' });
     }
 
-    // Get script path
-    db.get(`SELECT file_path FROM selenium_scripts WHERE script_id = ?`, [script_id], (err, row) => {
-        if (!row) return res.status(404).json({ error: 'Script not found' });
+    try {
+        const script = await SeleniumScript.findById(script_id);
+        if (!script) return res.status(404).json({ error: 'Script not found' });
 
-        // Create Job
-        db.run(`INSERT INTO selenium_job_runs (script_id, user_id, status) VALUES (?, ?, 'Pending')`,
-            [script_id, user_id || 1],
-            function (err) {
-                if (err) return res.status(500).json({ error: err.message });
+        const job = new SeleniumJob({
+            script_id,
+            user_id: user_id || null,
+            status: 'Pending'
+        });
 
-                const jobId = this.lastID;
-                seleniumService.executeTest(jobId, row.file_path, browsers, target_url);
+        await job.save();
 
-                res.json({ job_id: jobId, message: 'Test execution started' });
-            }
-        );
-    });
+        seleniumService.executeTest(job._id, script.file_path, browsers, target_url);
+
+        res.json({ job_id: job._id, message: 'Test execution started' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
 
-exports.getJobDetails = (req, res) => {
+exports.getJobDetails = async (req, res) => {
     const { id } = req.params;
-    db.get(`SELECT * FROM selenium_job_runs WHERE job_id = ?`, [id], (err, job) => {
+    try {
+        const job = await SeleniumJob.findById(id).lean();
         if (!job) return res.status(404).json({ error: 'Job not found' });
 
-        db.all(`SELECT * FROM selenium_browser_executions WHERE job_id = ?`, [id], (err, executions) => {
-            res.json({ ...job, executions });
-        });
-    });
+        const executions = job.executions ? job.executions.map(e => ({
+            ...e,
+            execution_id: e._id
+        })) : [];
+
+        res.json({ ...job, job_id: job._id, executions });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
 
-exports.getScripts = (req, res) => {
-    db.all(`SELECT * FROM selenium_scripts ORDER BY uploaded_at DESC`, (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
-    });
+exports.getScripts = async (req, res) => {
+    try {
+        const scripts = await SeleniumScript.find().sort({ uploaded_at: -1 }).lean();
+        res.json(scripts.map(s => ({ ...s, script_id: s._id })));
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
 
-exports.deleteJob = (req, res) => {
+exports.deleteJob = async (req, res) => {
     const { id } = req.params;
-    console.log(`[DEBUG] Attempting to delete Selenium job: ${id}`);
-    db.run(`DELETE FROM selenium_job_runs WHERE job_id = ?`, [id], function (err) {
-        if (err) {
-            console.error('[DEBUG] Delete Error:', err.message);
-            return res.status(500).json({ error: err.message });
-        }
-        console.log(`[DEBUG] Deleted Selenium job ${id}. Changes: ${this.changes}`);
+    try {
+        await SeleniumJob.findByIdAndDelete(id);
         res.json({ message: 'Job deleted successfully' });
-    });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
-

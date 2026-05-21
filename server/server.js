@@ -1,7 +1,10 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const db = require('./database');
+const { connectDB } = require('./database');
+
+// Connect to MongoDB
+connectDB();
 
 // Initialize Scheduler
 const { initScheduler } = require('./services/monitorScheduler');

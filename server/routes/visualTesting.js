@@ -1,12 +1,11 @@
-/**
- * Visual Regression Testing API Routes
- */
-
 const express = require('express');
 const router = express.Router();
-const db = require('../database');
 const path = require('path');
 const fs = require('fs');
+
+const VisualProject = require('../models/VisualProject');
+const VisualRun = require('../models/VisualRun');
+
 const { captureScreenshot, captureMultiple, getPageNameFromUrl, isValidUrl } = require('../utils/playwrightRunner');
 const { compareImages, generateSummary } = require('../utils/imageComparer');
 
@@ -16,153 +15,124 @@ const BASELINES_DIR = path.join(UPLOAD_DIR, 'baselines');
 const CURRENT_DIR = path.join(UPLOAD_DIR, 'current');
 const DIFFS_DIR = path.join(UPLOAD_DIR, 'diffs');
 
-/**
- * Create a new visual regression test project
- * POST /api/visual/create-project
- */
-router.post('/create-project', (req, res) => {
+router.post('/create-project', async (req, res) => {
     const { project_id, base_url, name } = req.body;
 
-    if (!base_url || !isValidUrl(base_url)) {
-        return res.status(400).json({ error: 'Valid base_url is required' });
-    }
+    if (!base_url || !isValidUrl(base_url)) return res.status(400).json({ error: 'Valid base_url is required' });
 
-    const sql = `INSERT INTO visual_projects (project_id, base_url, name) VALUES (?, ?, ?)`;
+    try {
+        const project = new VisualProject({
+            project_id: project_id || null,
+            base_url,
+            name: name || null
+        });
 
-    db.run(sql, [project_id || null, base_url, name || null], function (err) {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-
+        await project.save();
         res.json({
             message: 'Visual project created successfully',
-            visual_project_id: this.lastID,
+            visual_project_id: project._id,
             base_url,
             name
         });
-    });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
-/**
- * Get all visual test projects
- * GET /api/visual/projects
- */
-router.get('/projects', (req, res) => {
-    const sql = `
-        SELECT vp.*, p.name as project_name,
-               COUNT(DISTINCT vr.run_id) as total_runs,
-               MAX(vr.created_at) as last_run_date
-        FROM visual_projects vp
-        LEFT JOIN projects p ON vp.project_id = p.project_id
-        LEFT JOIN visual_runs vr ON vp.visual_project_id = vr.visual_project_id
-        GROUP BY vp.visual_project_id
-        ORDER BY vp.created_at DESC
-    `;
+router.get('/projects', async (req, res) => {
+    try {
+        const projects = await VisualProject.find()
+            .populate('project_id', 'name')
+            .sort({ created_at: -1 })
+            .lean();
 
-    db.all(sql, [], (err, rows) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        res.json(rows);
-    });
+        // Calculate run stats manually since they are now separate collections
+        const formatted = await Promise.all(projects.map(async (vp) => {
+            const runStats = await VisualRun.aggregate([
+                { $match: { visual_project_id: vp._id } },
+                { $group: { _id: null, total_runs: { $sum: 1 }, last_run_date: { $max: "$created_at" } } }
+            ]);
+
+            return {
+                ...vp,
+                visual_project_id: vp._id,
+                project_name: vp.project_id ? vp.project_id.name : null,
+                total_runs: runStats.length > 0 ? runStats[0].total_runs : 0,
+                last_run_date: runStats.length > 0 ? runStats[0].last_run_date : null
+            };
+        }));
+
+        res.json(formatted);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
-/**
- * Get a specific visual project
- * GET /api/visual/project/:id
- */
-router.get('/project/:id', (req, res) => {
-    const sql = `SELECT * FROM visual_projects WHERE visual_project_id = ?`;
-
-    db.get(sql, [req.params.id], (err, row) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        if (!row) {
-            return res.status(404).json({ error: 'Visual project not found' });
-        }
-        res.json(row);
-    });
+router.get('/project/:id', async (req, res) => {
+    try {
+        const project = await VisualProject.findById(req.params.id).lean();
+        if (!project) return res.status(404).json({ error: 'Visual project not found' });
+        
+        res.json({ ...project, visual_project_id: project._id });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
-/**
- * Run baseline screenshot capture
- * POST /api/visual/run-baseline
- */
 router.post('/run-baseline', async (req, res) => {
     const { visual_project_id, urls, browser = 'chrome', viewport = 'desktop', options = {} } = req.body;
 
-    if (!visual_project_id) {
-        return res.status(400).json({ error: 'visual_project_id is required' });
-    }
-
-    if (!urls || !Array.isArray(urls) || urls.length === 0) {
-        return res.status(400).json({ error: 'urls array is required' });
+    if (!visual_project_id || !urls || !Array.isArray(urls) || urls.length === 0) {
+        return res.status(400).json({ error: 'visual_project_id and urls array are required' });
     }
 
     try {
-        // Create a new run
-        const runSql = `INSERT INTO visual_runs (visual_project_id, run_type, browser, viewport, status) 
-                        VALUES (?, 'baseline', ?, ?, 'running')`;
+        const run = new VisualRun({
+            visual_project_id,
+            run_type: 'baseline',
+            browser,
+            viewport,
+            status: 'running'
+        });
 
-        db.run(runSql, [visual_project_id, browser, viewport], async function (runErr) {
-            if (runErr) {
-                return res.status(500).json({ error: runErr.message });
+        await run.save();
+
+        const outputDir = path.join(BASELINES_DIR, `vp_${visual_project_id}`);
+        const results = await captureMultiple(urls, browser, viewport, outputDir, options);
+
+        let successCount = 0;
+        const project = await VisualProject.findById(visual_project_id);
+
+        for (const result of results) {
+            if (result.success) {
+                // Remove existing baseline for this page/browser/viewport
+                project.baselines = project.baselines.filter(b => 
+                    !(b.page_url === result.url && b.browser === browser && b.viewport === viewport)
+                );
+
+                project.baselines.push({
+                    page_url: result.url,
+                    page_name: result.pageName,
+                    browser,
+                    viewport,
+                    image_path: result.outputPath
+                });
+                successCount++;
             }
+        }
 
-            const run_id = this.lastID;
+        await project.save();
 
-            // Capture screenshots
-            const outputDir = path.join(BASELINES_DIR, `vp_${visual_project_id}`);
-            const results = await captureMultiple(urls, browser, viewport, outputDir, options);
+        run.status = 'completed';
+        run.total_screenshots = successCount;
+        await run.save();
 
-            let successCount = 0;
-
-            // Save screenshots and baseline records
-            for (const result of results) {
-                if (result.success) {
-                    // Save screenshot record
-                    const screenshotSql = `INSERT INTO visual_screenshots (run_id, page_url, page_name, image_path) 
-                                          VALUES (?, ?, ?, ?)`;
-
-                    await new Promise((resolve, reject) => {
-                        db.run(screenshotSql, [run_id, result.url, result.pageName, result.outputPath], function (err) {
-                            if (err) reject(err);
-                            else {
-                                const screenshot_id = this.lastID;
-
-                                // Save as baseline
-                                const baselineSql = `INSERT INTO baseline_images 
-                                                    (visual_project_id, page_url, page_name, browser, viewport, image_path) 
-                                                    VALUES (?, ?, ?, ?, ?, ?)`;
-
-                                db.run(baselineSql,
-                                    [visual_project_id, result.url, result.pageName, browser, viewport, result.outputPath],
-                                    (baselineErr) => {
-                                        if (baselineErr) reject(baselineErr);
-                                        else {
-                                            successCount++;
-                                            resolve();
-                                        }
-                                    }
-                                );
-                            }
-                        });
-                    });
-                }
-            }
-
-            // Update run status
-            const updateSql = `UPDATE visual_runs SET status = 'completed', total_screenshots = ? WHERE run_id = ?`;
-            db.run(updateSql, [successCount, run_id]);
-
-            res.json({
-                message: 'Baseline screenshots captured successfully',
-                run_id,
-                total: urls.length,
-                successful: successCount,
-                results
-            });
+        res.json({
+            message: 'Baseline screenshots captured successfully',
+            run_id: run._id,
+            total: urls.length,
+            successful: successCount,
+            results
         });
 
     } catch (error) {
@@ -170,134 +140,85 @@ router.post('/run-baseline', async (req, res) => {
     }
 });
 
-/**
- * Run comparison test
- * POST /api/visual/run-comparison
- */
 router.post('/run-comparison', async (req, res) => {
     const { visual_project_id, urls, browser = 'chrome', viewport = 'desktop', options = {} } = req.body;
 
-    if (!visual_project_id) {
-        return res.status(400).json({ error: 'visual_project_id is required' });
-    }
-
-    if (!urls || !Array.isArray(urls) || urls.length === 0) {
-        return res.status(400).json({ error: 'urls array is required' });
+    if (!visual_project_id || !urls || !Array.isArray(urls) || urls.length === 0) {
+        return res.status(400).json({ error: 'visual_project_id and urls array are required' });
     }
 
     try {
-        // Create a new comparison run
-        const runSql = `INSERT INTO visual_runs (visual_project_id, run_type, browser, viewport, status) 
-                        VALUES (?, 'comparison', ?, ?, 'running')`;
+        const run = new VisualRun({
+            visual_project_id,
+            run_type: 'comparison',
+            browser,
+            viewport,
+            status: 'running'
+        });
 
-        db.run(runSql, [visual_project_id, browser, viewport], async function (runErr) {
-            if (runErr) {
-                return res.status(500).json({ error: runErr.message });
-            }
+        await run.save();
 
-            const run_id = this.lastID;
+        const project = await VisualProject.findById(visual_project_id);
+        const outputDir = path.join(CURRENT_DIR, `run_${run._id}`);
+        const results = await captureMultiple(urls, browser, viewport, outputDir, options);
 
-            // Capture current screenshots
-            const outputDir = path.join(CURRENT_DIR, `run_${run_id}`);
-            const results = await captureMultiple(urls, browser, viewport, outputDir, options);
+        const diffResults = [];
+        let passedCount = 0;
+        let failedCount = 0;
 
-            const diffResults = [];
-            let passedCount = 0;
-            let failedCount = 0;
+        for (const result of results) {
+            if (!result.success) continue;
 
-            // Compare with baselines
-            for (const result of results) {
-                if (!result.success) continue;
+            const baseline = project.baselines
+                .sort((a,b) => b.created_at - a.created_at) // latest first
+                .find(b => b.page_url === result.url && b.browser === browser && b.viewport === viewport);
 
-                // Save current screenshot
-                const screenshotSql = `INSERT INTO visual_screenshots (run_id, page_url, page_name, image_path) 
-                                      VALUES (?, ?, ?, ?)`;
+            if (!baseline) continue;
 
-                const screenshot_id = await new Promise((resolve, reject) => {
-                    db.run(screenshotSql, [run_id, result.url, result.pageName, result.outputPath], function (err) {
-                        if (err) reject(err);
-                        else resolve(this.lastID);
-                    });
+            const diffFilename = `${result.pageName}_diff.png`;
+            const diffPath = path.join(DIFFS_DIR, `run_${run._id}`, diffFilename);
+
+            const comparison = compareImages(baseline.image_path, result.outputPath, diffPath, options);
+
+            if (comparison.success) {
+                run.diffs.push({
+                    page_url: result.url,
+                    page_name: result.pageName,
+                    baseline_image_id: baseline._id,
+                    current_image_path: result.outputPath,
+                    diff_image_path: diffPath,
+                    mismatch_pixels: comparison.mismatchPixels,
+                    mismatch_percentage: comparison.mismatchPercentage,
+                    status: comparison.status,
+                    severity: comparison.severity
                 });
 
-                // Find matching baseline
-                const baselineSql = `SELECT * FROM baseline_images 
-                                    WHERE visual_project_id = ? AND page_url = ? 
-                                    AND browser = ? AND viewport = ?
-                                    ORDER BY created_at DESC LIMIT 1`;
-
-                const baseline = await new Promise((resolve, reject) => {
-                    db.get(baselineSql, [visual_project_id, result.url, browser, viewport], (err, row) => {
-                        if (err) reject(err);
-                        else resolve(row);
-                    });
+                diffResults.push({
+                    ...comparison,
+                    pageName: result.pageName,
+                    pageUrl: result.url
                 });
 
-                if (!baseline) {
-                    console.warn(`No baseline found for ${result.url}`);
-                    continue;
-                }
-
-                // Compare images
-                const diffFilename = `${result.pageName}_diff.png`;
-                const diffPath = path.join(DIFFS_DIR, `run_${run_id}`, diffFilename);
-
-                const comparison = compareImages(baseline.image_path, result.outputPath, diffPath, options);
-
-                if (comparison.success) {
-                    // Save diff record
-                    const diffSql = `INSERT INTO visual_diffs 
-                                    (run_id, baseline_image_id, current_image_id, page_url, page_name, 
-                                     diff_image_path, mismatch_pixels, mismatch_percentage, status, severity) 
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-
-                    await new Promise((resolve, reject) => {
-                        db.run(diffSql, [
-                            run_id, baseline.baseline_id, screenshot_id, result.url, result.pageName,
-                            diffPath, comparison.mismatchPixels, comparison.mismatchPercentage,
-                            comparison.status, comparison.severity
-                        ], function (err) {
-                            if (err) reject(err);
-                            else resolve(this.lastID);
-                        });
-                    });
-
-                    diffResults.push({
-                        ...comparison,
-                        pageName: result.pageName,
-                        pageUrl: result.url
-                    });
-
-                    if (comparison.status === 'fail') {
-                        failedCount++;
-
-                        // Auto-create defect for high severity failures
-                        if (comparison.severity === 'High' || comparison.severity === 'Critical') {
-                            // TODO: Auto-create defect
-                            console.log(`Auto-creating defect for ${result.url}`);
-                        }
-                    } else if (comparison.status === 'pass') {
-                        passedCount++;
-                    }
-                }
+                if (comparison.status === 'fail') failedCount++;
+                else passedCount++;
             }
+        }
 
-            // Update run with summary
-            const updateSql = `UPDATE visual_runs 
-                              SET status = 'completed', total_screenshots = ?, 
-                                  total_diffs = ?, passed = ?, failed = ? 
-                              WHERE run_id = ?`;
+        run.status = 'completed';
+        run.total_screenshots = results.length;
+        run.total_diffs = diffResults.length;
+        run.passed = passedCount;
+        run.failed = failedCount;
 
-            db.run(updateSql, [results.length, diffResults.length, passedCount, failedCount, run_id]);
+        await run.save();
 
-            const summary = generateSummary(diffResults);
+        const summary = generateSummary(diffResults);
 
-            res.json({
-                message: 'Comparison completed successfully',
-                run_id,
-                summary,
-                diffs: diffResults
-            });
+        res.json({
+            message: 'Comparison completed successfully',
+            run_id: run._id,
+            summary,
+            diffs: diffResults
         });
 
     } catch (error) {
@@ -305,116 +226,79 @@ router.post('/run-comparison', async (req, res) => {
     }
 });
 
-/**
- * Get a specific run by run_id
- * GET /api/visual/run/:runId
- */
-router.get('/run/:runId', (req, res) => {
-    const sql = `SELECT * FROM visual_runs WHERE run_id = ?`;
-
-    db.get(sql, [req.params.runId], (err, row) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        if (!row) {
-            return res.status(404).json({ error: 'Run not found' });
-        }
-        res.json(row);
-    });
+router.get('/run/:runId', async (req, res) => {
+    try {
+        const run = await VisualRun.findById(req.params.runId).lean();
+        if (!run) return res.status(404).json({ error: 'Run not found' });
+        res.json({ ...run, run_id: run._id });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
-/**
- * Get runs for a visual project
- * GET /api/visual/runs/:projectId
- */
-router.get('/runs/:projectId', (req, res) => {
-    const sql = `SELECT * FROM visual_runs WHERE visual_project_id = ? ORDER BY created_at DESC`;
-
-    db.all(sql, [req.params.projectId], (err, rows) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        res.json(rows);
-    });
+router.get('/runs/:projectId', async (req, res) => {
+    try {
+        const runs = await VisualRun.find({ visual_project_id: req.params.projectId })
+            .sort({ created_at: -1 })
+            .lean();
+        res.json(runs.map(r => ({ ...r, run_id: r._id })));
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
-/**
- * Get diffs for a specific run
- * GET /api/visual/diffs/:runId
- */
-router.get('/diffs/:runId', (req, res) => {
-    const sql = `
-        SELECT vd.*, 
-               bi.image_path as baseline_image_path,
-               vs.image_path as current_image_path
-        FROM visual_diffs vd
-        LEFT JOIN baseline_images bi ON vd.baseline_image_id = bi.baseline_id
-        LEFT JOIN visual_screenshots vs ON vd.current_image_id = vs.screenshot_id
-        WHERE vd.run_id = ?
-        ORDER BY vd.mismatch_percentage DESC
-    `;
+router.get('/diffs/:runId', async (req, res) => {
+    try {
+        const run = await VisualRun.findById(req.params.runId).lean();
+        if (!run) return res.status(404).json({ error: 'Run not found' });
 
-    db.all(sql, [req.params.runId], (err, rows) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        res.json(rows);
-    });
+        const project = await VisualProject.findById(run.visual_project_id).lean();
+
+        const diffs = run.diffs.map(d => {
+            const baseline = project.baselines.find(b => b._id.toString() === d.baseline_image_id.toString());
+            return {
+                ...d,
+                baseline_image_path: baseline ? baseline.image_path : null
+            };
+        }).sort((a, b) => b.mismatch_percentage - a.mismatch_percentage);
+
+        res.json(diffs);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
-/**
- * Approve a diff as new baseline
- * POST /api/visual/approve/:diffId
- */
-router.post('/approve/:diffId', (req, res) => {
-    // Get the diff
-    const getDiffSql = `SELECT vd.*, vs.image_path as current_image_path, 
-                               bi.visual_project_id, bi.page_url, bi.browser, bi.viewport
-                        FROM visual_diffs vd
-                        JOIN visual_screenshots vs ON vd.current_image_id = vs.screenshot_id
-                        JOIN baseline_images bi ON vd.baseline_image_id = bi.baseline_id
-                        WHERE vd.diff_id = ?`;
+router.post('/approve/:diffId', async (req, res) => {
+    try {
+        const run = await VisualRun.findOne({ "diffs._id": req.params.diffId });
+        if (!run) return res.status(404).json({ error: 'Diff not found' });
 
-    db.get(getDiffSql, [req.params.diffId], (err, diff) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        if (!diff) {
-            return res.status(404).json({ error: 'Diff not found' });
+        const diff = run.diffs.id(req.params.diffId);
+        
+        const project = await VisualProject.findById(run.visual_project_id);
+        if (!project) return res.status(404).json({ error: 'Project not found' });
+
+        const baseline = project.baselines.id(diff.baseline_image_id);
+        if (baseline) {
+            baseline.image_path = diff.current_image_path;
+            baseline.approved_by = req.user ? req.user.userId : null;
+            await project.save();
         }
 
-        // Update baseline with new image
-        const updateSql = `UPDATE baseline_images 
-                          SET image_path = ?, approved_by = ? 
-                          WHERE baseline_id = ?`;
-
-        db.run(updateSql, [diff.current_image_path, req.body.user_id || null, diff.baseline_image_id], (updateErr) => {
-            if (updateErr) {
-                return res.status(500).json({ error: updateErr.message });
-            }
-
-            res.json({ message: 'Baseline updated successfully' });
-        });
-    });
+        res.json({ message: 'Baseline updated successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
-/**
- * Delete a visual project
- * DELETE /api/visual/project/:id
- */
-router.delete('/project/:id', (req, res) => {
-    const sql = `DELETE FROM visual_projects WHERE visual_project_id = ?`;
-
-    db.run(sql, [req.params.id], function (err) {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-
-        res.json({
-            message: 'Visual project deleted successfully',
-            changes: this.changes
-        });
-    });
+router.delete('/project/:id', async (req, res) => {
+    try {
+        await VisualProject.findByIdAndDelete(req.params.id);
+        await VisualRun.deleteMany({ visual_project_id: req.params.id });
+        res.json({ message: 'Visual project deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 module.exports = router;

@@ -1,6 +1,26 @@
 version: "3.8"
 
 services:
+  # Node.js Backend API
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: meghana-backend
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./server/.env        # <-- secrets loaded from .env file (never committed)
+    environment:
+      - SELENIUM_GRID_URL=http://selenium-hub:4444/wd/hub
+    volumes:
+      - ./server/uploads:/app/uploads
+      - ./ecommerce-automation:/ecommerce-automation
+    depends_on:
+      - selenium-hub
+    restart: unless-stopped
+
+  # Selenium Grid Hub
   selenium-hub:
     image: selenium/hub:4.27.0
     container_name: selenium-hub
@@ -8,7 +28,9 @@ services:
       - "4444:4444"
       - "4442:4442"
       - "4443:4443"
+    restart: unless-stopped
 
+  # Selenium Chrome Node
   chrome:
     image: selenium/node-chrome:4.27.0
     shm_size: 2gb
@@ -21,7 +43,9 @@ services:
       - SE_RECORD_VIDEO=true
     volumes:
       - ./server/uploads/artifacts:/opt/selenium/assets
+    restart: unless-stopped
 
+  # Selenium Firefox Node
   firefox:
     image: selenium/node-firefox:4.27.0
     shm_size: 2gb
@@ -34,3 +58,7 @@ services:
       - SE_RECORD_VIDEO=true
     volumes:
       - ./server/uploads/artifacts:/opt/selenium/assets
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:

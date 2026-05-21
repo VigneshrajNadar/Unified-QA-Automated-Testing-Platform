@@ -1,53 +1,69 @@
-const db = require('../database');
+const WebMonitorJob = require('../models/WebMonitorJob');
 const webMonitorService = require('../services/webMonitorService');
 
-exports.startScan = (req, res) => {
+exports.startScan = async (req, res) => {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'URL is required' });
 
-    // Create Job
-    db.run(`INSERT INTO monitoring_jobs (url) VALUES (?)`, [url], function (err) {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const job = new WebMonitorJob({ url });
+        await job.save();
 
-        const jobId = this.lastID;
-        // Start Async Scan
-        webMonitorService.runScan(jobId, url);
+        webMonitorService.runScan(job._id, url);
 
-        res.json({ job_id: jobId, message: 'Scan started' });
-    });
+        res.json({ job_id: job._id, message: 'Scan started' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
 
-exports.getScans = (req, res) => {
-    db.all(`SELECT * FROM monitoring_jobs ORDER BY created_at DESC LIMIT 20`, (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
-    });
+exports.getScans = async (req, res) => {
+    try {
+        const scans = await WebMonitorJob.find().select('-links').sort({ created_at: -1 }).limit(20).lean();
+        res.json(scans.map(s => ({
+            ...s,
+            job_id: s._id,
+            health_score: s.health_score || s.seo_score || 0  // normalize field name for frontend
+        })));
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
 
-exports.getScanDetails = (req, res) => {
+exports.getScanDetails = async (req, res) => {
     const { id } = req.params;
 
-    db.get(`SELECT * FROM monitoring_jobs WHERE job_id = ?`, [id], (err, job) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const job = await WebMonitorJob.findById(id).lean();
         if (!job) return res.status(404).json({ error: 'Job not found' });
 
-        db.all(`SELECT * FROM link_validation_results WHERE job_id = ?`, [id], (err, links) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ ...job, links });
+        // Normalize link fields for frontend compatibility
+        const links = (job.links || []).map(l => ({
+            ...l,
+            result_id: l._id,
+            url: l.link_url || l.url,          // frontend uses link.url
+            status_code: l.status_code,
+            status: l.status,
+            response_time: l.response_time || null
+        }));
+
+        res.json({
+            ...job,
+            job_id: job._id,
+            health_score: job.health_score || job.seo_score || 0,  // normalize for frontend
+            links
         });
-    });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
 
-exports.deleteJob = (req, res) => {
+exports.deleteJob = async (req, res) => {
     const { id } = req.params;
-    console.log(`[DEBUG] Attempting to delete Monitor scan: ${id}`);
-    db.run(`DELETE FROM monitoring_jobs WHERE job_id = ?`, [id], function (err) {
-        if (err) {
-            console.error('[DEBUG] Delete Error:', err.message);
-            return res.status(500).json({ error: err.message });
-        }
-        console.log(`[DEBUG] Deleted Monitor scan ${id}. Changes: ${this.changes}`);
+    try {
+        await WebMonitorJob.findByIdAndDelete(id);
         res.json({ message: 'Scan deleted successfully' });
-    });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
-
