@@ -1,3 +1,8 @@
+// Polyfill for MongoDB driver on some Node environments (like Render)
+if (typeof crypto === 'undefined') {
+    global.crypto = require('crypto');
+}
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');

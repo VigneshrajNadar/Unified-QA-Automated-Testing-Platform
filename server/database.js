@@ -1,3 +1,7 @@
+if (typeof crypto === 'undefined') {
+    global.crypto = require('crypto');
+}
+
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 
