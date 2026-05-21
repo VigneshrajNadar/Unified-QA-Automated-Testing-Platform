@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bug, Plus, X, Edit2, Trash2, User, Activity, AlertTriangle, AlertCircle, FileImage, ShieldAlert, Zap, Terminal } from 'lucide-react';
-import api from '../api';
+import api, { SERVER_URL } from '../api';
 
 const Defects = () => {
     const [defects, setDefects] = useState([]);
@@ -365,8 +365,8 @@ const Defects = () => {
                                             </p>
                                             <div className="flex gap-4 overflow-x-auto custom-scrollbar pb-2">
                                                 {attachments[d.defect_id].map((att) => (
-                                                    <a key={att.attachment_id} href={`http://localhost:5000/uploads/${att.file_path}`} target="_blank" rel="noopener noreferrer" className="shrink-0 block rounded-xl overflow-hidden border border-white/10 hover:border-white/30 transition-colors shadow-lg">
-                                                        <img src={`http://localhost:5000/uploads/${att.file_path}`} alt="Defect screenshot" className="w-32 h-32 object-cover hover:scale-105 transition-transform duration-300" />
+                                                    <a key={att.attachment_id} href={`${SERVER_URL}/uploads/${att.file_path}`} target="_blank" rel="noopener noreferrer" className="shrink-0 block rounded-xl overflow-hidden border border-white/10 hover:border-white/30 transition-colors shadow-lg">
+                                                        <img src={`${SERVER_URL}/uploads/${att.file_path}`} alt="Defect screenshot" className="w-32 h-32 object-cover hover:scale-105 transition-transform duration-300" />
                                                     </a>
                                                 ))}
                                             </div>

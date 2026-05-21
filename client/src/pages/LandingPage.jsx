@@ -187,7 +187,7 @@ export default function LandingPage() {
         const fetchStats = async () => {
             try {
                 // Using raw axios to bypass the global interceptor's redirect on 401
-                const res = await axios.get('http://localhost:5000/api/dashboard/stats');
+                const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/dashboard/stats`);
                 setStats(res.data);
             } catch (err) {}
         };

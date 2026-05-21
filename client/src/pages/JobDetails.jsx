@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Clock, Monitor, XCircle, CheckCircle2, RefreshCw, AlertCircle, Camera, Video, MonitorPlay } from 'lucide-react';
-import api from '../api';
+import api, { SERVER_URL } from '../api';
 
 const JobDetails = () => {
     const { id } = useParams();
@@ -123,11 +123,11 @@ const JobDetails = () => {
                                 {exec.video_path ? (
                                     <div className="flex flex-wrap gap-2">
                                         {exec.video_path.endsWith('.png') ? (
-                                            <a href={`http://localhost:5000${exec.video_path}`} target="_blank" rel="noopener noreferrer" className="flex-1 flex justify-center items-center gap-2 py-2.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-bold rounded-xl transition-colors border border-blue-500/20">
+                                            <a href={`${SERVER_URL}${exec.video_path}`} target="_blank" rel="noopener noreferrer" className="flex-1 flex justify-center items-center gap-2 py-2.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-bold rounded-xl transition-colors border border-blue-500/20">
                                                 <Camera className="w-4 h-4" /> View Screenshot
                                             </a>
                                         ) : (
-                                            <a href={`http://localhost:5000${exec.video_path}`} target="_blank" rel="noopener noreferrer" className="flex-1 flex justify-center items-center gap-2 py-2.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-xs font-bold rounded-xl transition-colors border border-purple-500/20">
+                                            <a href={`${SERVER_URL}${exec.video_path}`} target="_blank" rel="noopener noreferrer" className="flex-1 flex justify-center items-center gap-2 py-2.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-xs font-bold rounded-xl transition-colors border border-purple-500/20">
                                                 <Video className="w-4 h-4" /> View Video
                                             </a>
                                         )}

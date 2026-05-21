@@ -66,7 +66,7 @@ const ProjectDetails = () => {
                 </div>
                 <div className="flex gap-3 w-full sm:w-auto">
                     <button 
-                        onClick={() => window.open(`http://localhost:5000/api/docs/export/testcases/${id}?token=${localStorage.getItem('token')}`, '_blank')}
+                        onClick={() => window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/docs/export/testcases/${id}?token=${localStorage.getItem('token')}`, '_blank')}
                         className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 text-white font-bold text-sm rounded-xl hover:bg-white/10 transition-colors"
                     >
                         <Download className="w-4 h-4 text-cyan-400" /> Export PDF
