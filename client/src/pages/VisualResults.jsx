@@ -10,6 +10,7 @@ function VisualResults() {
 
     const [run, setRun] = useState(null);
     const [diffs, setDiffs] = useState([]);
+    const [baselines, setBaselines] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedImage, setSelectedImage] = useState(null);
 
@@ -25,6 +26,10 @@ function VisualResults() {
             if (runResponse.data && runResponse.data.run_type === 'comparison') {
                 const diffsResponse = await api.get(`/visual/diffs/${runId}`);
                 setDiffs(diffsResponse.data);
+            } else if (runResponse.data && runResponse.data.run_type === 'baseline') {
+                const projResponse = await api.get(`/visual/project/${runResponse.data.visual_project_id}`);
+                const relevantBaselines = projResponse.data.baselines.filter(b => b.browser === runResponse.data.browser && b.viewport === runResponse.data.viewport);
+                setBaselines(relevantBaselines);
             }
         } catch (error) {
             console.error('Error fetching run data:', error);
@@ -109,17 +114,40 @@ function VisualResults() {
                         </div>
                     </div>
 
-                    <div className="bg-[#0B0F19]/80 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-xl">
-                        <div className="flex items-center gap-3 mb-6">
-                            <FolderOpen className="w-5 h-5 text-fuchsia-400" />
-                            <h3 className="text-lg font-bold text-white">Storage Location</h3>
-                        </div>
-                        <div className="p-4 bg-black/20 rounded-2xl border border-white/5 font-mono text-sm text-slate-300 break-all mb-4">
-                            server/uploads/visual-tests/baselines/vp_{run.visual_project_id}/
-                        </div>
-                        <p className="text-sm text-slate-400 flex items-center gap-2">
-                            <ImageIcon className="w-4 h-4 text-slate-500" /> Note: To view these screenshots, either inspect the server directory or run a comparison test to see them rendered in the UI alongside current captures.
-                        </p>
+                    <div className="space-y-6">
+                        {baselines.map((baseline, index) => (
+                            <motion.div key={baseline._id || index} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }} className="bg-[#0B0F19]/80 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-xl flex flex-col md:flex-row gap-6">
+                                <div className="flex-1">
+                                    <h3 className="text-xl font-bold text-white mb-2">{baseline.page_name}</h3>
+                                    <p className="text-sm text-slate-400 font-mono mb-4">{baseline.page_url}</p>
+                                    <div className="flex flex-wrap gap-3">
+                                        <div className="px-3 py-1 bg-black/30 border border-white/5 rounded-lg text-xs font-bold text-slate-300">
+                                            Browser: <span className="text-fuchsia-400 capitalize">{baseline.browser}</span>
+                                        </div>
+                                        <div className="px-3 py-1 bg-black/30 border border-white/5 rounded-lg text-xs font-bold text-slate-300">
+                                            Viewport: <span className="text-blue-400 capitalize">{baseline.viewport}</span>
+                                        </div>
+                                        <div className="px-3 py-1 bg-black/30 border border-white/5 rounded-lg text-xs font-bold text-slate-300">
+                                            Captured: <span className="text-emerald-400">{new Date(baseline.created_at).toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="w-full md:w-1/2 lg:w-1/3">
+                                    <div className="aspect-video rounded-xl border border-white/10 bg-black/50 overflow-hidden group cursor-pointer relative" onClick={() => baseline.image_path && setSelectedImage({ src: `${SERVER_URL}/uploads/${baseline.image_path.split(/uploads[\\/]/)[1]?.replace(/\\/g, '/')}`, title: 'Baseline - ' + baseline.page_name })}>
+                                        {baseline.image_path ? (
+                                            <>
+                                                <img src={`${SERVER_URL}/uploads/${baseline.image_path.split(/uploads[\\/]/)[1]?.replace(/\\/g, '/')}`} alt="Baseline" className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500" onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="%23f0f0f0"/><text x="50%" y="50%" text-anchor="middle" fill="%23999">Image not found</text></svg>'; }} />
+                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                    <Search className="w-8 h-8 text-white drop-shadow-lg" />
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="flex items-center justify-center h-full text-slate-500">Image not available</div>
+                                        )}
+                                    </div>
+                                </div>
+                            </motion.div>
+                        ))}
                     </div>
                 </motion.div>
             ) : (
@@ -190,10 +218,10 @@ function VisualResults() {
                                             {/* Baseline Image */}
                                             <div className="flex flex-col h-full">
                                                 <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Camera className="w-4 h-4"/> Baseline Reference</h4>
-                                                <div className="flex-1 rounded-2xl border border-white/10 bg-black/50 overflow-hidden group cursor-pointer relative" onClick={() => diff.baseline_image_path && setSelectedImage({ src: `${SERVER_URL}/uploads/${diff.baseline_image_path.split('uploads\\')[1]?.replace(/\\/g, '/')}`, title: 'Baseline - ' + diff.page_name })}>
+                                                <div className="flex-1 rounded-2xl border border-white/10 bg-black/50 overflow-hidden group cursor-pointer relative" onClick={() => diff.baseline_image_path && setSelectedImage({ src: `${SERVER_URL}/uploads/${diff.baseline_image_path.split(/uploads[\\/]/)[1]?.replace(/\\/g, '/')}`, title: 'Baseline - ' + diff.page_name })}>
                                                     {diff.baseline_image_path ? (
                                                         <>
-                                                            <img src={`${SERVER_URL}/uploads/${diff.baseline_image_path.split('uploads\\')[1]?.replace(/\\/g, '/')}`} alt="Baseline" className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500" onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="%23f0f0f0"/><text x="50%" y="50%" text-anchor="middle" fill="%23999">Image not found</text></svg>'; }} />
+                                                            <img src={`${SERVER_URL}/uploads/${diff.baseline_image_path.split(/uploads[\\/]/)[1]?.replace(/\\/g, '/')}`} alt="Baseline" className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500" onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="%23f0f0f0"/><text x="50%" y="50%" text-anchor="middle" fill="%23999">Image not found</text></svg>'; }} />
                                                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"><Search className="w-8 h-8 text-white drop-shadow-lg" /></div>
                                                         </>
                                                     ) : (
@@ -205,10 +233,10 @@ function VisualResults() {
                                             {/* Current Image */}
                                             <div className="flex flex-col h-full">
                                                 <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Monitor className="w-4 h-4"/> Current Capture</h4>
-                                                <div className="flex-1 rounded-2xl border border-white/10 bg-black/50 overflow-hidden group cursor-pointer relative" onClick={() => diff.current_image_path && setSelectedImage({ src: `${SERVER_URL}/uploads/${diff.current_image_path.split('uploads\\')[1]?.replace(/\\/g, '/')}`, title: 'Current - ' + diff.page_name })}>
+                                                <div className="flex-1 rounded-2xl border border-white/10 bg-black/50 overflow-hidden group cursor-pointer relative" onClick={() => diff.current_image_path && setSelectedImage({ src: `${SERVER_URL}/uploads/${diff.current_image_path.split(/uploads[\\/]/)[1]?.replace(/\\/g, '/')}`, title: 'Current - ' + diff.page_name })}>
                                                     {diff.current_image_path ? (
                                                         <>
-                                                            <img src={`${SERVER_URL}/uploads/${diff.current_image_path.split('uploads\\')[1]?.replace(/\\/g, '/')}`} alt="Current" className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500" onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="%23f0f0f0"/><text x="50%" y="50%" text-anchor="middle" fill="%23999">Image not found</text></svg>'; }} />
+                                                            <img src={`${SERVER_URL}/uploads/${diff.current_image_path.split(/uploads[\\/]/)[1]?.replace(/\\/g, '/')}`} alt="Current" className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500" onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="%23f0f0f0"/><text x="50%" y="50%" text-anchor="middle" fill="%23999">Image not found</text></svg>'; }} />
                                                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"><Search className="w-8 h-8 text-white drop-shadow-lg" /></div>
                                                         </>
                                                     ) : (
@@ -220,10 +248,10 @@ function VisualResults() {
                                             {/* Diff Overlay */}
                                             <div className="flex flex-col h-full">
                                                 <h4 className="text-xs font-black text-rose-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Bug className="w-4 h-4"/> Difference Map</h4>
-                                                <div className={`flex-1 rounded-2xl border bg-black/50 overflow-hidden group cursor-pointer relative ${diff.status === 'pass' ? 'border-white/10 opacity-70' : 'border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.15)]'}`} onClick={() => diff.diff_image_path && setSelectedImage({ src: `${SERVER_URL}/uploads/${diff.diff_image_path.split('uploads\\')[1]?.replace(/\\/g, '/')}`, title: 'Difference Map - ' + diff.page_name })}>
+                                                <div className={`flex-1 rounded-2xl border bg-black/50 overflow-hidden group cursor-pointer relative ${diff.status === 'pass' ? 'border-white/10 opacity-70' : 'border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.15)]'}`} onClick={() => diff.diff_image_path && setSelectedImage({ src: `${SERVER_URL}/uploads/${diff.diff_image_path.split(/uploads[\\/]/)[1]?.replace(/\\/g, '/')}`, title: 'Difference Map - ' + diff.page_name })}>
                                                     {diff.diff_image_path ? (
                                                         <>
-                                                            <img src={`${SERVER_URL}/uploads/${diff.diff_image_path.split('uploads\\')[1]?.replace(/\\/g, '/')}`} alt="Diff Map" className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500" onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="%23f0f0f0"/><text x="50%" y="50%" text-anchor="middle" fill="%23999">Image not found</text></svg>'; }} />
+                                                            <img src={`${SERVER_URL}/uploads/${diff.diff_image_path.split(/uploads[\\/]/)[1]?.replace(/\\/g, '/')}`} alt="Diff Map" className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500" onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="%23f0f0f0"/><text x="50%" y="50%" text-anchor="middle" fill="%23999">Image not found</text></svg>'; }} />
                                                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"><Search className="w-8 h-8 text-white drop-shadow-lg" /></div>
                                                         </>
                                                     ) : (

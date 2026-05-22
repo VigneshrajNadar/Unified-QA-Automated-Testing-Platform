@@ -12,18 +12,21 @@ const ajv = new Ajv({ allErrors: true, strict: false });
  * @param {Object|String} responseBody - Response to validate (object or JSON string)
  * @returns {Object} Validation result with isValid and errors
  */
-function cleanMongooseIds(obj) {
-    if (Array.isArray(obj)) {
-        obj.forEach(cleanMongooseIds);
-    } else if (obj !== null && typeof obj === 'object') {
-        if (obj._id) delete obj._id;
-        // Only delete 'id' if it's at a schema root or looks like a mongoose virtual (string of 24 hex)
-        // Actually, just deleting 'id' at the root of schemas is safest to avoid 'id.replace is not a function'
-        if (obj.id && (typeof obj.id !== 'string' || obj.id.length === 24)) delete obj.id;
-        
-        for (const key in obj) {
-            if (typeof obj[key] === 'object') {
-                cleanMongooseIds(obj[key]);
+function cleanMongooseIds(obj, visited = new WeakSet()) {
+    if (obj !== null && typeof obj === 'object') {
+        if (visited.has(obj)) return;
+        visited.add(obj);
+
+        if (Array.isArray(obj)) {
+            obj.forEach(item => cleanMongooseIds(item, visited));
+        } else {
+            if (obj._id) delete obj._id;
+            if (obj.id && (typeof obj.id !== 'string' || obj.id.length === 24)) delete obj.id;
+            
+            for (const key in obj) {
+                if (typeof obj[key] === 'object') {
+                    cleanMongooseIds(obj[key], visited);
+                }
             }
         }
     }
