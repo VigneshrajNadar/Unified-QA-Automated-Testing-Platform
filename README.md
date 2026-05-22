@@ -12,6 +12,11 @@
 ## 📌 Overview
 The **Unified QA & Automated Testing Platform** is a comprehensive, full-stack orchestration dashboard designed to streamline, manage, and execute automated testing workflows. By integrating multiple industry-standard testing frameworks and advanced AI-driven capabilities, this platform empowers QA engineers and developers to run robust UI, API, Visual Regression, Performance, and Security tests seamlessly from a centralized location.
 
+### 🆕 Recent Updates
+*   **Performance Engine Upgrade**: `k6` is now natively injected as a statically linked binary during Render deployments, ensuring compatibility across Alpine Linux containers.
+*   **Swagger API Enhancements**: Seamless parsing of deeply nested schemas with circular references. Auto-injection of `Content-Type: application/json` headers and dynamic `{path}` parameter interpolation via the new **Params (JSON)** UI field.
+*   **Auto Testing Stability**: Hardened CI/CD pipeline execution for large Monorepos. Optimized defect generation to prevent MongoDB timeouts and `npx` prompt hanging during automated ESLint and coverage scans.
+
 ---
 
 ## 🛠️ Tech Stack & Architecture
