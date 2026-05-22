@@ -14,7 +14,11 @@ RUN pip install pytest pytest-html selenium requests beautifulsoup4 requests-htm
 # Copy package.json and install Node dependencies
 COPY package*.json ./
 RUN npm install
-RUN npx playwright install --with-deps chromium
+
+# Install Chromium natively for Alpine (Playwright fallback)
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 # Copy application code
 COPY . .

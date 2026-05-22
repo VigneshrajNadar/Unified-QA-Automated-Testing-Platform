@@ -46,6 +46,7 @@ async function captureScreenshot(url, browserType = 'chrome', viewportType = 'de
         // Launch browser
         browser = await browserEngine.launch({
             headless: true,
+            executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
             ...options.browserOptions
         });
 
