@@ -52,10 +52,14 @@ function validateSchema(schema, responseBody) {
         };
 
     } catch (error) {
+        let errMsg = error.message;
+        if (error instanceof RangeError || errMsg.includes('call stack')) {
+            errMsg = "Schema is too complex or contains circular references that cannot be validated.";
+        }
         return {
             isValid: false,
             errors: [{
-                message: `Schema validation error: ${error.message}`
+                message: `Schema validation error: ${errMsg}`
             }]
         };
     }
