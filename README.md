@@ -1,4 +1,4 @@
-# 🚀 Unified Automation Hub v2.0
+# 🚀 Unified QA & Automated Testing Platform
 
 <p align="center">
   <img src="https://img.shields.io/badge/Version-2.0.0-blue.svg" alt="Version">
@@ -10,13 +10,13 @@
 </p>
 
 ## 📌 Overview
-The **Unified Automation Hub v2.0** is a comprehensive, full-stack orchestration dashboard designed to streamline, manage, and execute automated testing workflows. By integrating multiple industry-standard testing frameworks and advanced AI-driven capabilities, this platform empowers QA engineers, Developers, and Administrators to run robust UI, API, Visual Regression, Performance, and Security tests seamlessly from a centralized location.
+The **Unified QA & Automated Testing Platform** is a comprehensive, full-stack orchestration dashboard designed to streamline, manage, and execute automated testing workflows. By integrating multiple industry-standard testing frameworks and advanced AI-driven capabilities, this platform empowers QA engineers, Developers, and Administrators to run robust UI, API, Visual Regression, Performance, and Security tests seamlessly from a centralized location.
 
 ---
 
 ## 👥 Role-Based Portals & Project Capabilities
 
-Unified Automation Hub v2.0 provides isolated, highly specific toolsets based on three primary user roles: **Admin**, **Tester (QA Engineer)**, and **Developer**. Each role has access to specific project features and modules to maximize their efficiency.
+The **Unified QA & Automated Testing Platform** provides isolated, highly specific toolsets based on three primary user roles: **Admin**, **Tester (QA Engineer)**, and **Developer**. Each role has access to specific project features and modules to maximize their efficiency.
 
 ### 👑 1. Administrator Role
 The Admin portal is focused on high-level oversight, infrastructure monitoring, and user management. Admins are responsible for maintaining the health of the entire testing ecosystem.

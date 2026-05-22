@@ -238,7 +238,7 @@ export default function LandingPage() {
                     <RevealOnScroll delay={100}>
                         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-panel border border-cyan-500/30 mb-8 shadow-[0_0_20px_rgba(6,182,212,0.15)]">
                             <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse-fast" />
-                            <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-cyan-100">Unified Automation Hub v2.0</span>
+                            <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-cyan-100">Unified QA & Automated Testing Platform</span>
                         </div>
                     </RevealOnScroll>
 
