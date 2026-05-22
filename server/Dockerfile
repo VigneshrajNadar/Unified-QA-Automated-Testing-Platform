@@ -11,6 +11,9 @@ RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install pytest pytest-html selenium requests beautifulsoup4 requests-html w3lib lxml g4f webdriver-manager
 
+# Install k6 natively via Alpine repository
+RUN apk add --no-cache k6 --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing
+
 # Copy package.json and install Node dependencies
 COPY package*.json ./
 RUN npm install
