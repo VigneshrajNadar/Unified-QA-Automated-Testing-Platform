@@ -14,7 +14,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-// --- UTILITY COMPONENTS (LOANWISE STYLE) ---
+// --- UTILITY COMPONENTS ---
 
 function RevealOnScroll({ children, delay = 0 }) {
     const [isVisible, setIsVisible] = useState(false);
