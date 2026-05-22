@@ -11,8 +11,12 @@ RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install pytest pytest-html selenium requests beautifulsoup4 requests-html w3lib lxml g4f webdriver-manager
 
-# Install k6 natively via Alpine repository
-RUN apk add --no-cache k6 --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing
+# Install k6 from Grafana releases (statically linked for Linux)
+RUN apk add --no-cache curl && \
+    curl -L https://github.com/grafana/k6/releases/download/v0.50.0/k6-v0.50.0-linux-amd64.tar.gz | tar -xz && \
+    mv k6-v0.50.0-linux-amd64/k6 /usr/bin/k6 && \
+    chmod +x /usr/bin/k6 && \
+    rm -rf k6-v0.50.0-linux-amd64
 
 # Copy package.json and install Node dependencies
 COPY package*.json ./
