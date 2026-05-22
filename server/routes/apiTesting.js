@@ -174,7 +174,7 @@ router.post('/execute/:id', async (req, res) => {
             try {
                 const validation = validateSchema(request.schema, result.response_body);
                 schema_valid = validation.isValid;
-                if (!validation.isValid) {
+                if (validation.isValid === false) {
                     result.error_message = `Schema validation failed: ${JSON.stringify(validation.errors)}`;
                 }
             } catch (e) {

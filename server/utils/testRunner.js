@@ -118,7 +118,7 @@ const runNodePipeline = async (cwd, projectInfo, testDiscovery, selectedTests, p
         if (selectedTests.includes('static')) {
             log('\n=== Phase 3: Static Code Analysis (ESLint) ===');
             await new Promise(resolveLint => {
-                const lint = spawn('npx', ['eslint', '.', '--format', 'json'], { cwd, shell: true });
+                const lint = spawn('npx', ['--yes', 'eslint', '.', '--format', 'json'], { cwd, shell: true });
                 let lintOutput = '';
                 lint.stdout.on('data', d => { lintOutput += d; });
                 lint.stderr.on('data', d => log(`[ESLint]: ${d.toString().trim()}`));
@@ -184,7 +184,7 @@ const runNodePipeline = async (cwd, projectInfo, testDiscovery, selectedTests, p
                         ? ['--reporter=json-summary', '--reporter=text', 'npm', 'test']
                         : ['test'];
 
-                    const test = spawn('npx', [cmd, ...args], { cwd, shell: true });
+                    const test = spawn('npx', ['--yes', cmd, ...args], { cwd, shell: true });
                     test.stdout.on('data', d => log(`[Test]: ${d.toString().trim()}`));
                     test.stderr.on('data', d => log(`[Test]: ${d.toString().trim()}`));
 
