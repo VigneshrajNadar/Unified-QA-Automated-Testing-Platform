@@ -114,6 +114,10 @@ function convertPathsToRequests(paths, baseUrl) {
                 schema = JSON.stringify(successResponse.schema, null, 2);
             }
 
+            if (body) {
+                headers['Content-Type'] = 'application/json';
+            }
+
             requests.push({
                 name,
                 description,
