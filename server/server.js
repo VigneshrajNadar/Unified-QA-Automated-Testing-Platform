@@ -21,6 +21,7 @@ const rateLimit = require('express-rate-limit');
 const authenticateToken = require('./middleware/authMiddleware');
 
 const app = express();
+app.set('trust proxy', 1); // Trust Render's proxy for rate limiting
 const PORT = process.env.PORT || 5000;
 
 // Security Middleware

@@ -35,9 +35,7 @@ Render will host the Node.js API server.
 3. Connect your GitHub repository.
 4. Configure the Web Service:
    - **Root Directory**: `server`
-   - **Environment**: `Node`
-   - **Build Command**: `npm install`
-   - **Start Command**: `npm start`
+   - **Environment**: `Docker` (This is CRITICAL to ensure all tools like Python, Java, and k6 are installed properly)
 5. Add your Environment Variables:
    - `MONGODB_URI`: (Your secure MongoDB URL)
    - `GEMINI_API_KEY`: (Your Gemini key)

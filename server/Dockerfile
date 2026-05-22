@@ -4,7 +4,8 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Install OS-level dependencies required for node-gyp or python scripts
-RUN apk add --no-cache python3 py3-pip make g++ git
+RUN apk add --no-cache python3 py3-pip make g++ git openjdk11
+RUN apk add --no-cache k6 --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community
 
 # Create Python virtual environment and install packages
 RUN python3 -m venv /opt/venv
