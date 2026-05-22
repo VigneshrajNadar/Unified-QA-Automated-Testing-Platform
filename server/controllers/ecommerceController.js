@@ -25,7 +25,7 @@ exports.getReport = (req, res) => {
     }
 
     // Try to read XML for dashboard data
-    const xmlPath = path.join(__dirname, '../../ecommerce-automation/reports/result.xml');
+    const xmlPath = path.join(__dirname, '../ecommerce-automation/reports/result.xml');
     let summary = { tests: 0, failures: 0, time: 0 };
 
     if (fs.existsSync(xmlPath)) {

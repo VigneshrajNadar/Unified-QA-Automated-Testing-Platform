@@ -78,7 +78,7 @@ app.use('/api/performance', require('./routes/performance'));
 app.use('/api/security', require('./routes/security'));
 // Mobile Testing
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/api/ecommerce/reports', express.static(path.join(__dirname, '../ecommerce-automation/reports'))); // Serve Reports
+app.use('/api/ecommerce/reports', express.static(path.join(__dirname, 'ecommerce-automation/reports'))); // Serve Reports
 
 app.get('/', (req, res) => {
     res.send('QA Tool API is running');

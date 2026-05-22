@@ -1,0 +1,36 @@
+{
+  "targetUrl": "https://google-gruyere.appspot.com/part1",
+  "scanTime": "2025-12-19 16:40:43",
+  "summary": {
+    "high": 0,
+    "medium": 3,
+    "low": 1
+  },
+  "riskRating": "MEDIUM",
+  "findings": [
+    {
+      "title": "Missing HTTP Header: X-Frame-Options",
+      "severity": "MEDIUM",
+      "description": "Missing Anti-Clickjacking Header",
+      "recommendation": "Configure the server to send the X-Frame-Options header."
+    },
+    {
+      "title": "Missing HTTP Header: Content-Security-Policy",
+      "severity": "MEDIUM",
+      "description": "Missing Content Security Policy",
+      "recommendation": "Configure the server to send the Content-Security-Policy header."
+    },
+    {
+      "title": "Missing HTTP Header: X-Content-Type-Options",
+      "severity": "LOW",
+      "description": "Missing MIME Type Protection",
+      "recommendation": "Configure the server to send the X-Content-Type-Options header."
+    },
+    {
+      "title": "Missing HTTP Header: Strict-Transport-Security",
+      "severity": "MEDIUM",
+      "description": "Missing HSTS Header",
+      "recommendation": "Configure the server to send the Strict-Transport-Security header."
+    }
+  ]
+}

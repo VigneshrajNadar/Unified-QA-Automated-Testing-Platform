@@ -1,0 +1,35 @@
+{
+    "summary": {
+        "passed": 3,
+        "failed": 1,
+        "total": 6
+    },
+    "steps": [
+        {
+            "step": "Login",
+            "description": "Navigated to login page and authenticated as standard_user",
+            "status": "PASSED",
+            "timestamp": "18:30:14"
+        },
+        {
+            "step": "Product Selection",
+            "description": "Selected the first product from the inventory",
+            "status": "PASSED",
+            "timestamp": "18:30:14"
+        },
+        {
+            "step": "Add to Cart",
+            "description": "Added product to cart and navigated to cart page",
+            "status": "PASSED",
+            "timestamp": "18:30:15"
+        },
+        {
+            "step": "Cart Verification",
+            "description": "Cart verification failed",
+            "status": "FAILED",
+            "timestamp": "18:30:17",
+            "error": "Message: invalid session id: session deleted as the browser has closed the connection\nfrom disconnected: unable to send message to renderer\n  (Session info: chrome=148.0.7778.168); For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#invalidsessionidexception\nStacktrace:\n\tchromedriver!GetHandleVerifier [0x65b593+105d3]\n\tchromedriver!GetHandleVerifier [0x65b6c4+10704]\n\tchromedriver!(No symbol) [0x461ea0]\n\tchromedriver!(No symbol) [0x451379]\n\tchromedriver!(No symbol) [0x4512f6]\n\tchromedriver!(No symbol) [0x44fe53]\n\tchromedriver!(No symbol) [0x450876]\n\tchromedriver!(No symbol) [0x466b8e]\n\tchromedriver!(No symbol) [0x467375]\n\tchromedriver!(No symbol) [0x46ad4a]\n\tchromedriver!(No symbol) [0x46add8]\n\tchromedriver!(No symbol) [0x4aad00]\n\tchromedriver!(No symbol) [0x4ab52b]\n\tchromedriver!(No symbol) [0x4ed052]\n\tchromedriver!(No symbol) [0x4cd7c4]\n\tchromedriver!(No symbol) [0x4ea936]\n\tchromedriver!(No symbol) [0x4cd516]\n\tchromedriver!(No symbol) [0x4a08e9]\n\tchromedriver!(No symbol) [0x4a16a4]\n\tchromedriver!GetHandleVerifier [0x8e3014+298054]\n\tchromedriver!GetHandleVerifier [0x8de603+293643]\n\tchromedriver!GetHandleVerifier [0x8fea05+2b3a45]\n\tchromedriver!GetHandleVerifier [0x6754e8+2a528]\n\tchromedriver!GetHandleVerifier [0x67cd1d+31d5d]\n\tchromedriver!GetHandleVerifier [0x663e68+18ea8]\n\tchromedriver!GetHandleVerifier [0x664015+19055]\n\tchromedriver!GetHandleVerifier [0x64d65f+269f]\n\tKERNEL32!BaseThreadInitThunk [0x776b5d49+19]\n\tntdll!RtlInitializeExceptionChain [0x779ed83b+6b]\n\tntdll!RtlGetAppContainerNamedObjectPath [0x779ed7c1+231]\n"
+        }
+    ],
+    "scanTime": "2026-05-21 18:30:02"
+}

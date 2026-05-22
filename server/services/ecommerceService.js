@@ -5,7 +5,7 @@ const fs = require('fs');
 class EcommerceService {
 
     constructor() {
-        this.automationDir = path.resolve(__dirname, '../../ecommerce-automation');
+        this.automationDir = path.resolve(__dirname, '../ecommerce-automation');
         this.reportDir = path.join(this.automationDir, 'reports');
         this.testFile = path.join(this.automationDir, 'tests/test_e2e_flow.py');
         this.reportFile = path.join(this.reportDir, 'report.html');
