@@ -88,10 +88,12 @@ router.post('/execute', upload.single('projectFile'), async (req, res) => {
         await testRun.save();
         const runId = testRun._id;
 
-        // Auto-Create Defect for Static Errors
+        // Auto-Create Defect for Static Errors (Limit to 10 to prevent timeouts)
         if (results.staticAnalysis && results.staticAnalysis.length > 0) {
+            let defectCount = 0;
             for (const issue of results.staticAnalysis) {
-                if (issue.severity === 'Error') {
+                if (issue.severity === 'Error' && defectCount < 10) {
+                    defectCount++;
                     const steps = `1. Open file ${issue.file}\n2. Go to line ${issue.line}\n3. Observe code violation for rule ${issue.rule}`;
                     const expected = `Code should comply with rule ${issue.rule}`;
                     const actual = `Code violates rule: ${issue.message}`;
@@ -114,14 +116,12 @@ router.post('/execute', upload.single('projectFile'), async (req, res) => {
             }
         }
 
-        // Auto-Create Defect for Security Issues
+        // Auto-Create Defect for Security Vulnerabilities (Limit to 10)
         if (results.security && results.security.length > 0) {
+            let securityDefectCount = 0;
             for (const issue of results.security) {
-                if (issue.severity === 'high' || issue.severity === 'critical') {
-                    const steps = `1. Check package.json dependencies\n2. Run 'npm audit' locally\n3. Observe vulnerability in package ${issue.rule}`;
-                    const expected = `Package ${issue.rule} should be secure`;
-                    const actual = `Package has ${issue.severity} vulnerability: ${issue.description}`;
-
+                if ((issue.severity === 'high' || issue.severity === 'critical') && securityDefectCount < 10) {
+                    securityDefectCount++;
                     await new Defect({
                         project_id: projectId,
                         test_run_id: runId,
@@ -131,9 +131,9 @@ router.post('/execute', upload.single('projectFile'), async (req, res) => {
                         priority: 'High',
                         status: 'Open',
                         assignee_id: req.user ? req.user.userId : null,
-                        steps,
-                        expected_result: expected,
-                        actual_result: actual,
+                        steps: `1. Check package.json dependencies\n2. Run 'npm audit' locally\n3. Observe vulnerability in package ${issue.rule}`,
+                        expected_result: `Package ${issue.rule} should be secure`,
+                        actual_result: `Package has ${issue.severity} vulnerability: ${issue.description}`,
                         detection_source: 'Security Scan'
                     }).save();
                 }

@@ -320,6 +320,11 @@ function APICollection() {
                                     </div>
 
                                     <div>
+                                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Params (JSON)</label>
+                                        <textarea value={newRequest.params} onChange={e => setNewRequest({ ...newRequest, params: e.target.value })} placeholder='{"orderId": "1"}' className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-slate-300 font-mono text-sm focus:outline-none focus:border-indigo-500/50 transition-colors min-h-[80px]" />
+                                    </div>
+
+                                    <div>
                                         <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Headers (JSON)</label>
                                         <textarea value={newRequest.headers} onChange={e => setNewRequest({ ...newRequest, headers: e.target.value })} placeholder='{"Content-Type": "application/json"}' className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-slate-300 font-mono text-sm focus:outline-none focus:border-indigo-500/50 transition-colors min-h-[80px]" />
                                     </div>
