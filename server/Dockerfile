@@ -18,8 +18,9 @@ RUN apk add --no-cache curl && \
     chmod +x /usr/bin/k6 && \
     rm -rf k6-v0.50.0-linux-amd64
 
-# Copy package.json and install Node dependencies
+# Copy package.json and scripts for postinstall
 COPY package*.json ./
+COPY scripts/ ./scripts/
 RUN npm install
 
 # Install Chromium natively for Alpine (Playwright fallback)
