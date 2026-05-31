@@ -28,7 +28,7 @@ router.get('/defects/:runId/pdf', async (req, res) => {
             }
         }
 
-        const outputPath = path.join(__dirname, '../../temp_uploads', `defects_${runId}_${Date.now()}.pdf`);
+        const outputPath = path.join(__dirname, '../temp_uploads', `defects_${runId}_${Date.now()}.pdf`);
         await generateDefectReport(defects, `Run ${runId}`, outputPath);
 
         res.download(outputPath, `defect_report_${runId}.pdf`, (err) => {
@@ -62,7 +62,7 @@ router.get('/defects/:runId/excel', async (req, res) => {
             }
         }
 
-        const outputPath = path.join(__dirname, '../../temp_uploads', `defects_${runId}_${Date.now()}.xlsx`);
+        const outputPath = path.join(__dirname, '../temp_uploads', `defects_${runId}_${Date.now()}.xlsx`);
         await generateDefectsExcel(defects, `Run ${runId}`, outputPath);
 
         res.download(outputPath, `defect_report_${runId}.xlsx`, (err) => {
@@ -94,7 +94,7 @@ router.get('/execution/:runId/pdf', async (req, res) => {
             securityIssues
         };
 
-        const outputPath = path.join(__dirname, '../../temp_uploads', `execution_${runId}_${Date.now()}.pdf`);
+        const outputPath = path.join(__dirname, '../temp_uploads', `execution_${runId}_${Date.now()}.pdf`);
         await generateExecutionReport(runData, outputPath);
 
         res.download(outputPath, `execution_report_${runId}.pdf`, (err) => {
@@ -154,7 +154,7 @@ router.get('/defects/all/excel', async (req, res) => {
             test_case_title: d.test_case_id ? d.test_case_id.title : null
         }));
 
-        const outputPath = path.join(__dirname, '../../temp_uploads', `all_defects_${Date.now()}.xlsx`);
+        const outputPath = path.join(__dirname, '../temp_uploads', `all_defects_${Date.now()}.xlsx`);
         await generateDefectsExcel(formattedDefects, 'All Defects', outputPath);
 
         res.download(outputPath, `all_defects_report.xlsx`, (err) => {

@@ -8,9 +8,7 @@ const { analyzeComplexity } = require('./complexityAnalyzer');
 const { runPerformanceTests } = require('./performanceTester');
 const { runIntegrationTests } = require('./integrationTester');
 const { runRegressionTests } = require('./regressionTester');
-
-const EXTRACT_PATH = path.join(__dirname, '../../temp_uploads');
-
+const EXTRACT_PATH = path.join(__dirname, '../temp_uploads');
 if (!fs.existsSync(EXTRACT_PATH)) {
     fs.mkdirSync(EXTRACT_PATH, { recursive: true });
 }

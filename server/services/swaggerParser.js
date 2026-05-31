@@ -81,13 +81,14 @@ function convertPathsToRequests(paths, baseUrl) {
                         headers[param.name] = param.example || `<${param.name}>`;
                     } else if (param.in === 'query' || param.in === 'path') {
                         queryParams[param.name] = param.example || param.default || `<${param.name}>`;
+                    } else if (param.in === 'body' && param.schema) {
+                        body = param.schema.example ? JSON.stringify(param.schema.example, null, 2) : "{}";
                     }
                 });
             }
 
             // Get request body example (OpenAPI 3.x)
-            let body = null;
-            if (operation.requestBody && operation.requestBody.content) {
+            if (!body && operation.requestBody && operation.requestBody.content) {
                 const content = operation.requestBody.content['application/json'];
                 if (content && content.example) {
                     body = JSON.stringify(content.example, null, 2);
@@ -114,8 +115,18 @@ function convertPathsToRequests(paths, baseUrl) {
                 schema = JSON.stringify(successResponse.schema, null, 2);
             }
 
-            if (body) {
+            // Resolve consumes and produces (Swagger 2.0)
+            const consumes = operation.consumes || api.consumes || [];
+            const produces = operation.produces || api.produces || [];
+
+            if (consumes.length > 0 && !headers['Content-Type']) {
+                headers['Content-Type'] = consumes[0];
+            } else if (body && !headers['Content-Type']) {
                 headers['Content-Type'] = 'application/json';
+            }
+
+            if (produces.length > 0 && !headers['Accept']) {
+                headers['Accept'] = produces[0];
             }
 
             requests.push({

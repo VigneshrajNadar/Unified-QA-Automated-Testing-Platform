@@ -12,8 +12,7 @@ const router = express.Router();
 
 const fs = require('fs');
 
-// Configure Multer for Zip Uploads
-const tempUploadDir = path.join(__dirname, '../../temp_uploads');
+const tempUploadDir = path.join(__dirname, '../temp_uploads');
 if (!fs.existsSync(tempUploadDir)) {
     fs.mkdirSync(tempUploadDir, { recursive: true });
 }
@@ -44,7 +43,7 @@ router.post('/execute', upload.single('projectFile'), async (req, res) => {
         inputPath = file.path;
     } else if (gitUrl) {
         inputType = 'dir';
-        inputPath = path.join(__dirname, '../../temp_uploads', `git_${Date.now()}`);
+        inputPath = path.join(__dirname, '../temp_uploads', `git_${Date.now()}`);
 
         try {
             await new Promise((resolve, reject) => {
