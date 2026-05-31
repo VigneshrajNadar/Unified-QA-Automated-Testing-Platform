@@ -31,10 +31,12 @@ const runTests = (inputPath, projectId, selectedTests = [], inputType = 'zip') =
             }
 
             // Check if zip/dir has a root folder
-            const files = fs.readdirSync(projectDir);
+            const allFiles = fs.readdirSync(projectDir);
+            const validFiles = allFiles.filter(f => !f.startsWith('.') && f !== '__MACOSX');
+            
             let actualProjectDir = projectDir;
-            if (files.length === 1 && fs.lstatSync(path.join(projectDir, files[0])).isDirectory()) {
-                actualProjectDir = path.join(projectDir, files[0]);
+            if (validFiles.length === 1 && fs.lstatSync(path.join(projectDir, validFiles[0])).isDirectory()) {
+                actualProjectDir = path.join(projectDir, validFiles[0]);
             }
 
             // Fallback for monorepos (like this QA platform itself) that have client/server folders
