@@ -12,4 +12,10 @@ const projectSchema = new mongoose.Schema({
   updated_at: { type: Date, default: Date.now }
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
+projectSchema.virtual('project_id').get(function() {
+  return this._id.toHexString();
+});
+projectSchema.set('toJSON', { virtuals: true });
+projectSchema.set('toObject', { virtuals: true });
+
 module.exports = mongoose.model('Project', projectSchema);
