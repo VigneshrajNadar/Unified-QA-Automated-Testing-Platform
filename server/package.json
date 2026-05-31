@@ -8,7 +8,7 @@
     "dev": "nodemon server.js",
     "seed": "node seed_demo.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "postinstall": "if [ \"$RENDER\" = \"true\" ]; then curl -L https://github.com/grafana/k6/releases/download/v0.50.0/k6-v0.50.0-linux-amd64.tar.gz | tar -xz && mv k6-v0.50.0-linux-amd64/k6 ./k6_bin && rm -rf k6-v0.50.0-linux-amd64; fi"
+    "postinstall": "node scripts/postinstall.js"
   },
   "keywords": [],
   "author": "",
