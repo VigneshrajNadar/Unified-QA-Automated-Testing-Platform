@@ -74,6 +74,7 @@ function convertPathsToRequests(paths, baseUrl) {
             // Extract headers from parameters
             const headers = {};
             const queryParams = {};
+            let body = null;
 
             if (operation.parameters) {
                 operation.parameters.forEach(param => {

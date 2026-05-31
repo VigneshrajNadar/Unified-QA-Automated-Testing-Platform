@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const AdmZip = require('adm-zip');
-const { spawn } = require('child_process');
+const spawn = require('cross-spawn');
 const { detectProject } = require('./projectDetector');
 const { discoverTests } = require('./testDiscovery');
 const { analyzeComplexity } = require('./complexityAnalyzer');

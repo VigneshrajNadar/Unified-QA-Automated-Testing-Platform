@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const { spawn } = require('child_process');
+const spawn = require('cross-spawn');
 
 const TestRun = require('../models/TestRun');
 const Defect = require('../models/Defect');
@@ -51,6 +51,9 @@ router.post('/execute', upload.single('projectFile'), async (req, res) => {
                 git.on('close', (code) => {
                     if (code === 0) resolve();
                     else reject(new Error('Git clone failed'));
+                });
+                git.on('error', (err) => {
+                    reject(new Error(`Git command error: ${err.message}`));
                 });
             });
         } catch (err) {
