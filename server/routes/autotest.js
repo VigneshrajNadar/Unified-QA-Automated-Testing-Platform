@@ -226,7 +226,11 @@ router.post('/execute', upload.single('projectFile'), async (req, res) => {
         });
 
     } catch (err) {
-        console.error(err);
+        console.error('Execute route error:', err);
+        // If it's a known bad-request type error from testRunner or AdmZip
+        if (err.message.includes('Unable to detect project type') || err.message.includes('Invalid filename')) {
+            return res.status(400).json({ message: 'Invalid Project File', error: err.message });
+        }
         res.status(500).json({ message: 'Execution Failed', error: err.message });
     }
 });

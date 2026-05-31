@@ -96,10 +96,16 @@ const runNodePipeline = async (cwd, projectInfo, testDiscovery, selectedTests, p
     install.stdout.on('data', d => log(`[Install]: ${d.toString().trim()}`));
     install.stderr.on('data', d => log(`[Install]: ${d.toString().trim()}`));
 
+    install.on('error', (err) => {
+        log(`Failed to start npm install: ${err.message}`);
+        reject(new Error(`Failed to start npm install: ${err.message}`));
+    });
+
     install.on('close', async (code) => {
-        if (code !== 0) {
-            log('Warning: Installation had issues, continuing...');
-        }
+        try {
+            if (code !== 0) {
+                log('Warning: Installation had issues, continuing...');
+            }
 
         // Phase 2: Complexity Analysis
         if (selectedTests.includes('complexity')) {
@@ -253,7 +259,11 @@ const runNodePipeline = async (cwd, projectInfo, testDiscovery, selectedTests, p
             }
         }
 
-        resolve({ success: true, logs, results });
+            resolve({ success: true, logs, results });
+        } catch (err) {
+            log(`Pipeline Error: ${err.message}`);
+            reject(err);
+        }
     });
 };
 
