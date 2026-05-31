@@ -37,6 +37,18 @@ const runTests = (inputPath, projectId, selectedTests = [], inputType = 'zip') =
                 actualProjectDir = path.join(projectDir, files[0]);
             }
 
+            // Fallback for monorepos (like this QA platform itself) that have client/server folders
+            if (!fs.existsSync(path.join(actualProjectDir, 'package.json')) && !fs.existsSync(path.join(actualProjectDir, 'requirements.txt'))) {
+                const subDirs = ['server', 'backend', 'api', 'src'];
+                for (const sub of subDirs) {
+                    if (fs.existsSync(path.join(actualProjectDir, sub, 'package.json')) || fs.existsSync(path.join(actualProjectDir, sub, 'requirements.txt'))) {
+                        actualProjectDir = path.join(actualProjectDir, sub);
+                        console.log(`Using nested subdirectory: ${actualProjectDir}`);
+                        break;
+                    }
+                }
+            }
+
             // 2. Detect Project Type
             const projectInfo = detectProject(actualProjectDir);
             console.log('Detected project:', projectInfo);
