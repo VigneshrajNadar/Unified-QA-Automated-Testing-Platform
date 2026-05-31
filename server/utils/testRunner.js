@@ -138,6 +138,10 @@ const runNodePipeline = async (cwd, projectInfo, testDiscovery, selectedTests, p
                 let lintOutput = '';
                 lint.stdout.on('data', d => { lintOutput += d; });
                 lint.stderr.on('data', d => log(`[ESLint]: ${d.toString().trim()}`));
+                lint.on('error', (err) => {
+                    log(`ESLint execution error: ${err.message}`);
+                    resolveLint();
+                });
 
                 lint.on('close', () => {
                     try {
@@ -166,6 +170,10 @@ const runNodePipeline = async (cwd, projectInfo, testDiscovery, selectedTests, p
                 const audit = spawn('npm', ['audit', '--json'], { cwd, shell: true });
                 let auditOutput = '';
                 audit.stdout.on('data', d => { auditOutput += d; });
+                audit.on('error', (err) => {
+                    log(`Security scan execution error: ${err.message}`);
+                    resolveAudit();
+                });
 
                 audit.on('close', () => {
                     try {
@@ -203,6 +211,13 @@ const runNodePipeline = async (cwd, projectInfo, testDiscovery, selectedTests, p
                     const test = spawn('npx', ['--yes', cmd, ...args], { cwd, shell: true });
                     test.stdout.on('data', d => log(`[Test]: ${d.toString().trim()}`));
                     test.stderr.on('data', d => log(`[Test]: ${d.toString().trim()}`));
+                    test.on('error', (err) => {
+                        log(`Test execution error: ${err.message}`);
+                        results.unitTests.total = testDiscovery.totalFiles || 0;
+                        results.unitTests.passed = 0;
+                        results.unitTests.failed = testDiscovery.totalFiles || 0;
+                        resolveTest();
+                    });
 
                     test.on('close', (testCode) => {
                         log(`\nTest process finished with code ${testCode}`);
