@@ -21,6 +21,8 @@ The **Unified QA & Automated Testing Platform** provides isolated, highly specif
 ### 👑 1. Administrator Role
 The Admin portal is focused on high-level oversight, infrastructure monitoring, and user management. Admins are responsible for maintaining the health of the entire testing ecosystem.
 
+*   **Compliance Audit Log (NEW):** Immutable cryptographic ledger tracking all critical system events, access requests, and state changes to ensure SOC2 / ISO 27001 readiness.
+*   **Custom Fields Engine (NEW):** Dynamically extend Projects, Defects, and Test Cases with custom data fields (text, dropdowns, dates, etc.) without altering the database schema.
 *   **Project & User Management:** Complete oversight over all active testing projects. Admins can create new projects, assign team members (Testers/Developers) to specific projects, and manage Role-Based Access Control (RBAC).
 *   **Web & Uptime Monitoring (`/monitor`):** Continuous background tracking of critical URLs. Uses `Node-Cron` to guarantee external dependencies are alive, responding with 2xx status codes, and maintaining valid SSL certificates.
 *   **Performance & Load Testing (`/performance`):** Trigger distributed `k6` load testing campaigns. Admins simulate concurrent Virtual Users (VUs) to find server breaking points, measuring Requests Per Second (RPS) and latency percentiles.
@@ -29,18 +31,21 @@ The Admin portal is focused on high-level oversight, infrastructure monitoring, 
 ### 🕵️ 2. QA Engineer / Tester Role
 The Tester portal is the core functional area. It is entirely focused on creating, managing, and executing various automated tests and logging defects.
 
+*   **Exploratory Testing Copilot (NEW):** A dedicated studio for unscripted testing. Testers can record sessions, take notes, and instantly convert findings into structured defect tickets.
+*   **BDD Studio & AI Test Generation (NEW):** Automatically translates plain-English requirements into formal test steps and BDD scenarios using advanced LLMs (via OpenRouter fallback chains).
 *   **Test Case & Requirements Management (`/test-cases`, `/requirements`):** Create structured manual and automated test cases. Map individual test cases directly to business requirements to ensure 100% Traceability Matrix coverage.
 *   **Visual Regression Testing (VRT) (`/visual-testing`):** Capture pixel-perfect baseline screenshots of Web Components. Run automated daily comparison sweeps using `pixelmatch` to catch unintended layout, CSS, or responsive design regressions.
 *   **API Testing Hub (`/api-testing`):** A fully-featured REST client. Import Swagger/OpenAPI specifications or manually craft GET/POST/PUT requests. Supports dynamic `{path}` parameter interpolation, Auth header injection, and JSON schema validation assertions.
 *   **E-Commerce UI Automation (`/ecommerce`):** Run robust, end-to-end Selenium and Playwright scripts across multiple browsers. Verifies complex business workflows like adding items to a cart, checking out, and calculating dynamic pricing.
-*   **Defect Management (`/defects`):** When tests fail, Testers can automatically or manually log defects with auto-generated reproduction steps, attached failure screenshots, and linked Jira-style priority workflows.
+*   **Defect Management (`/defects`):** When tests fail, Testers can automatically or manually log defects with auto-generated reproduction steps, attached failure screenshots, and linked Jira-style priority workflows. Includes **AI Auto-Triage** to suggest severity and Root Cause Analysis (RCA).
 
 ### 💻 3. Developer Role
 The Developer portal is heavily integrated with the CI/CD pipeline. It empowers developers to run "shift-left" testing locally or via remote execution before pushing code.
 
+*   **AI Test Impact Analysis (TIA) (NEW):** Reads Git diffs and uses AI to identify which existing test cases are impacted by a code change, and suggests what new tests should be created.
 *   **Automated CI/CD Pipeline Execution (`/autotest`):** Upload `.zip` archives or provide GitHub repository URLs to execute a massive, multi-phase automated pipeline. Runs Node/Python/Java pipelines including `npm install`, ESLint complexity analysis, Unit test coverage (`nyc`), and generates automated defect tickets.
-*   **AI Test Script Generation (`/ai-testgen`):** Leverage advanced LLMs (via the `g4f` integration) to automatically scaffold boilerplate Selenium or Playwright code. Developers simply type "Test the login form" and receive syntactically valid `.js` or `.py` files to download and commit.
-*   **Cloud Selenium Execution (`/selenium`):** Upload custom WebDriver scripts and execute them directly on the remote server's headless Chromium instance without needing to configure local WebDriver binaries.
+*   **AI Test Script Generation (`/ai-testgen`):** Leverage advanced LLMs to automatically scaffold boilerplate Selenium or Playwright code. Developers simply type "Test the login form" and receive syntactically valid `.js` or `.py` files to download and commit.
+*   **Cloud Selenium Execution (`/selenium`):** Upload custom WebDriver scripts and execute them directly on the remote server's headless Chromium instance without needing to configure local WebDriver binaries. Includes **AI Auto-Heal** to automatically fix broken CSS/XPath selectors during test execution.
 
 ---
 
