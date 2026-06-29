@@ -4,11 +4,10 @@ const axios = require('axios');
 
 // Free models in priority order — tries each until one succeeds
 const FREE_MODELS = [
+    'meta-llama/llama-3.1-8b-instruct:free',
+    'google/gemma-2-9b-it:free',
+    'microsoft/phi-3-mini-128k-instruct:free',
     'meta-llama/llama-3.2-3b-instruct:free',
-    'meta-llama/llama-3.3-70b-instruct:free',
-    'google/gemma-4-31b-it:free',
-    'openai/gpt-oss-20b:free',
-    'liquid/lfm-2.5-1.2b-instruct:free',
 ];
 
 const callOpenRouter = async (messages) => {
@@ -22,7 +21,7 @@ const callOpenRouter = async (messages) => {
                     headers: {
                         'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
                         'Content-Type': 'application/json',
-                        'HTTP-Referer': 'http://localhost:5000',
+                        'HTTP-Referer': process.env.RENDER_EXTERNAL_URL || 'http://localhost:5000',
                         'X-Title': 'QA Platform'
                     },
                     timeout: 30000
@@ -37,8 +36,8 @@ const callOpenRouter = async (messages) => {
             const status = err.response?.status;
             console.warn(`[AI] Model ${model} failed (${status}): ${err.response?.data?.error?.message || err.message}`);
             lastError = err;
-            // Only retry on rate limit (429) or not found (404) — fail fast on auth errors
-            if (status && status !== 429 && status !== 404 && status !== 503) {
+            // Fail fast ONLY on 401 Unauthorized (bad API key)
+            if (status === 401) {
                 break;
             }
         }
