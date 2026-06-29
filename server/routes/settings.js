@@ -15,7 +15,8 @@ router.get('/', async (req, res) => {
                 complexity_threshold: 10,
                 security_strictness: 'High',
                 notifications_enabled: true,
-                rtm_strictness: 'Strict'
+                rtm_strictness: 'Strict',
+                defect_custom_fields: []
             });
         }
 
@@ -31,7 +32,7 @@ router.get('/', async (req, res) => {
 
 // Update Settings
 router.post('/', async (req, res) => {
-    const { coverage_threshold, complexity_threshold, security_strictness, notifications_enabled, rtm_strictness } = req.body;
+    const { coverage_threshold, complexity_threshold, security_strictness, notifications_enabled, rtm_strictness, defect_custom_fields } = req.body;
     const userId = req.user.userId;
 
     try {
@@ -43,6 +44,7 @@ router.post('/', async (req, res) => {
                 security_strictness,
                 notifications_enabled: !!notifications_enabled,
                 rtm_strictness: rtm_strictness || 'Strict',
+                defect_custom_fields: defect_custom_fields || [],
                 updated_at: Date.now()
             },
             { upsert: true, new: true }

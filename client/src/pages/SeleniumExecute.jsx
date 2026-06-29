@@ -147,6 +147,30 @@ const SeleniumExecute = () => {
                                 </div>
                                 {browsers.includes('firefox') && <CheckCircle2 className="w-5 h-5 text-orange-400 absolute right-4" />}
                             </label>
+
+                            <label className={`relative flex items-center p-4 rounded-xl border cursor-pointer transition-all ${browsers.includes('edge') ? 'bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'bg-[#0D1424] border-white/10 hover:border-white/20'}`}>
+                                <input type="checkbox" className="hidden" checked={browsers.includes('edge')} onChange={() => handleBrowserToggle('edge')} />
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-4 shrink-0 border ${browsers.includes('edge') ? 'bg-emerald-500/20 border-emerald-500/30' : 'bg-white/5 border-white/10'}`}>
+                                    <div className={`w-4 h-4 rounded-full ${browsers.includes('edge') ? 'bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-slate-500'}`} />
+                                </div>
+                                <div className="flex-1">
+                                    <div className={`font-bold text-sm ${browsers.includes('edge') ? 'text-emerald-400' : 'text-white'}`}>Microsoft Edge</div>
+                                    <div className="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">V114.0 Windows</div>
+                                </div>
+                                {browsers.includes('edge') && <CheckCircle2 className="w-5 h-5 text-emerald-400 absolute right-4" />}
+                            </label>
+
+                            <label className={`relative flex items-center p-4 rounded-xl border cursor-pointer transition-all ${browsers.includes('safari') ? 'bg-cyan-500/10 border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.1)]' : 'bg-[#0D1424] border-white/10 hover:border-white/20'}`}>
+                                <input type="checkbox" className="hidden" checked={browsers.includes('safari')} onChange={() => handleBrowserToggle('safari')} />
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-4 shrink-0 border ${browsers.includes('safari') ? 'bg-cyan-500/20 border-cyan-500/30' : 'bg-white/5 border-white/10'}`}>
+                                    <div className={`w-4 h-4 rounded-full ${browsers.includes('safari') ? 'bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)]' : 'bg-slate-500'}`} />
+                                </div>
+                                <div className="flex-1">
+                                    <div className={`font-bold text-sm ${browsers.includes('safari') ? 'text-cyan-400' : 'text-white'}`}>Apple Safari</div>
+                                    <div className="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">V16.4 macOS</div>
+                                </div>
+                                {browsers.includes('safari') && <CheckCircle2 className="w-5 h-5 text-cyan-400 absolute right-4" />}
+                            </label>
                         </div>
                     </div>
 

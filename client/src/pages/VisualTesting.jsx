@@ -109,12 +109,20 @@ function VisualTesting() {
                     </h1>
                     <p className="text-sm text-slate-400 mt-1">Detect UI changes by comparing screenshots pixel-by-pixel.</p>
                 </div>
-                <button 
-                    onClick={() => setShowCreateModal(true)}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white font-bold text-sm rounded-xl transition-all shadow-[0_0_15px_rgba(192,38,211,0.3)] hover:shadow-[0_0_25px_rgba(192,38,211,0.5)]"
-                >
-                    <Plus className="w-4 h-4" /> New Visual Project
-                </button>
+                <div className="flex gap-4">
+                    <button 
+                        onClick={() => navigate('/visual-diffs/direct')}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-black/40 hover:bg-black/60 border border-indigo-500/30 text-indigo-400 font-bold text-sm rounded-xl transition-all"
+                    >
+                        <ImageIcon className="w-4 h-4" /> Quick Compare
+                    </button>
+                    <button 
+                        onClick={() => setShowCreateModal(true)}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white font-bold text-sm rounded-xl transition-all shadow-[0_0_15px_rgba(192,38,211,0.3)] hover:shadow-[0_0_25px_rgba(192,38,211,0.5)]"
+                    >
+                        <Plus className="w-4 h-4" /> New Visual Project
+                    </button>
+                </div>
             </motion.div>
 
             {projects.length === 0 ? (

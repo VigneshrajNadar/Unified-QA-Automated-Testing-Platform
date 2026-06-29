@@ -5,32 +5,39 @@ import {
     LayoutDashboard, FolderKanban, FileSpreadsheet, PlaySquare, 
     Bug, FileText, Brain, Camera, Webhook, Zap, Bot, 
     Cloud, Activity, ShoppingCart, ShieldAlert, Users, 
-    Settings, LogOut, Menu, X, ShieldCheck
+    Settings, LogOut, Menu, X, ShieldCheck, KanbanSquare, Network, Compass, Server, Shield, GitPullRequest, BookOpen
 } from 'lucide-react';
 
 import AnimatedBackground from './AnimatedBackground';
+import NotificationBell from './NotificationBell';
 
 const Layout = () => {
-    const { user, logout } = useAuth();
+    const { user, logout, hasAccess } = useAuth();
     const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const navLinks = [
-        { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-        { name: 'Projects', path: '/projects', icon: FolderKanban },
-        { name: 'Test Cases', path: '/test-cases', icon: FileSpreadsheet },
-        { name: 'Test Runs', path: '/test-runs', icon: PlaySquare },
-        { name: 'Defects', path: '/defects', icon: Bug },
-        { name: 'Requirements', path: '/requirements', icon: FileText },
-        { name: 'AI Test Generator', path: '/ai-testgen', icon: Brain },
-        { name: 'Visual Testing', path: '/visual-testing', icon: Camera },
-        { name: 'API Testing', path: '/api-testing', icon: Webhook },
-        { name: 'Performance', path: '/performance', icon: Zap },
-        { name: 'Auto-Test', path: '/autotest', icon: Bot },
-        { name: 'Selenium Cloud', path: '/selenium', icon: Cloud },
-        { name: 'Web Monitor', path: '/monitor', icon: Activity },
-        { name: 'E-Commerce Auto', path: '/ecommerce', icon: ShoppingCart },
-        { name: 'Security Suite', path: '/security', icon: ShieldAlert },
+        { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, feature: 'dashboard' },
+        { name: 'Agile Board', path: '/board', icon: KanbanSquare, feature: 'board' },
+        { name: 'Projects', path: '/projects', icon: FolderKanban, feature: 'projects' },
+        { name: 'Test Cases', path: '/test-cases', icon: FileSpreadsheet, feature: 'testcases' },
+        { name: 'Test Runs', path: '/test-runs', icon: PlaySquare, feature: 'testruns' },
+        { name: 'Exploratory Sessions', path: '/exploratory', icon: Compass, feature: 'testruns' },
+        { name: 'Defects', path: '/defects', icon: Bug, feature: 'defects' },
+        { name: 'Requirements', path: '/requirements', icon: FileText, feature: 'requirements' },
+        { name: 'Traceability (RTM)', path: '/rtm', icon: Network, feature: 'testcases' },
+        { name: 'Impact Analysis (TIA)', path: '/tia', icon: GitPullRequest, feature: 'autotest' },
+        { name: 'BDD Studio', path: '/bdd', icon: BookOpen, feature: 'autotest' },
+        { name: 'AI Test Generator', path: '/ai-testgen', icon: Brain, feature: 'ai-testgen' },
+        { name: 'Visual Testing', path: '/visual-testing', icon: Camera, feature: 'visual' },
+        { name: 'API Testing', path: '/api-testing', icon: Webhook, feature: 'api-testing' },
+        { name: 'Mock Server', path: '/mock-server', icon: Server, feature: 'api-testing' },
+        { name: 'Performance', path: '/performance', icon: Zap, feature: 'performance' },
+        { name: 'Auto-Test', path: '/autotest', icon: Bot, feature: 'autotest' },
+        { name: 'Selenium Cloud', path: '/selenium', icon: Cloud, feature: 'selenium' },
+        { name: 'Web Monitor', path: '/monitor', icon: Activity, feature: 'monitor' },
+        { name: 'E-Commerce Auto', path: '/ecommerce', icon: ShoppingCart, feature: 'ecommerce' },
+        { name: 'Security Suite', path: '/security', icon: ShieldAlert, feature: 'security' },
     ];
 
     const isActive = (path) => location.pathname === path || location.pathname.startsWith(`${path}/`);
@@ -65,7 +72,7 @@ const Layout = () => {
 
                 {/* Navigation Links */}
                 <div className="flex-1 overflow-y-auto custom-scrollbar py-4 px-3 space-y-1 mt-16 lg:mt-0">
-                    {navLinks.map((link) => (
+                    {navLinks.filter(link => hasAccess(link.feature)).map((link) => (
                         <Link
                             key={link.name}
                             to={link.path}
@@ -84,15 +91,35 @@ const Layout = () => {
                     <div className="my-4 border-t border-white/10 mx-2"></div>
                     
                     {user?.role?.toLowerCase() === 'admin' && (
-                        <Link
-                            to="/users"
-                            onClick={() => setIsMobileMenuOpen(false)}
-                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                                isActive('/users') ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
-                            }`}
-                        >
-                            <Users className="w-4 h-4 text-slate-500" /> Manage Users
-                        </Link>
+                        <>
+                            <Link
+                                to="/users"
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                                    isActive('/users') ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+                                }`}
+                            >
+                                <Users className="w-4 h-4 text-slate-500" /> Manage Users
+                            </Link>
+                            <Link
+                                to="/system"
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                                    isActive('/system') ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+                                }`}
+                            >
+                                <Server className="w-4 h-4 text-slate-500" /> System Hub
+                            </Link>
+                            <Link
+                                to="/audit-logs"
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                                    isActive('/audit-logs') ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+                                }`}
+                            >
+                                <Shield className="w-4 h-4 text-slate-500" /> Audit Logs
+                            </Link>
+                        </>
                     )}
                     
                     <Link
@@ -113,8 +140,11 @@ const Layout = () => {
                             <span className="text-sm font-bold text-white capitalize">{user?.name || 'User'}</span>
                             <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider">{user?.role || 'Tester'}</span>
                         </div>
-                        <div className="w-8 h-8 rounded-full bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 font-bold text-xs">
-                            {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                        <div className="flex items-center gap-3">
+                            <NotificationBell />
+                            <div className="w-8 h-8 rounded-full bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 font-bold text-xs shrink-0">
+                                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                            </div>
                         </div>
                     </div>
                     

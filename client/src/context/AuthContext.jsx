@@ -46,19 +46,28 @@ export const AuthProvider = ({ children }) => {
 
     // Role-based access control
     const hasAccess = (feature) => {
+        const normalizedRole = role ? role.toLowerCase() : null;
+        if (!normalizedRole) return false;
+
         const rolePermissions = {
             admin: ['all'],
-            tester: ['dashboard', 'projects', 'testcases', 'testruns', 'defects', 'autotest', 'ai-testgen', 'visual', 'api-testing', 'selenium', 'monitor', 'ecommerce', 'performance', 'security'],
-            developer: ['dashboard', 'projects', 'requirements', 'defects', 'autotest', 'ai-testgen', 'visual', 'api-testing', 'selenium', 'performance', 'security'],
-            viewer: ['dashboard', 'projects', 'testcases', 'testruns', 'defects', 'requirements']
+            tester: [
+                'dashboard', 'board', 'projects', 'testcases', 'testruns', 'defects', 
+                'requirements', 'ai-testgen', 'visual', 'api-testing', 
+                'performance', 'selenium', 'ecommerce', 'settings'
+            ],
+            developer: [
+                'dashboard', 'board', 'projects', 'defects', 'requirements', 
+                'ai-testgen', 'autotest', 'security', 'settings', 'api-testing'
+            ]
         };
 
-        if (role === 'admin') return true;
-        return rolePermissions[role]?.includes(feature) || false;
+        if (normalizedRole === 'admin') return true;
+        return rolePermissions[normalizedRole]?.includes(feature) || false;
     };
 
     const canEdit = () => {
-        return role !== 'viewer';
+        return true; // We enforce edit permissions on backend now
     };
 
     // Create a user object - prefer real user from localStorage, fall back to mock

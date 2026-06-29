@@ -9,6 +9,9 @@ const ExecuteRun = () => {
     const [run, setRun] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    const [expandedCaseId, setExpandedCaseId] = useState(null);
+    const [stepResultsMap, setStepResultsMap] = useState({});
+
     // Defect Modal State
     const [showDefectModal, setShowDefectModal] = useState(false);
     const [currentTestCase, setCurrentTestCase] = useState(null);
@@ -35,16 +38,36 @@ const ExecuteRun = () => {
 
     const handleStatusUpdate = async (testCaseId, status) => {
         try {
+            // Convert stepResultsMap[testCaseId] to array format if it exists
+            let stepResultsArray = undefined;
+            if (stepResultsMap[testCaseId]) {
+                stepResultsArray = Object.keys(stepResultsMap[testCaseId]).map(stepNumber => ({
+                    step_number: parseInt(stepNumber),
+                    status: stepResultsMap[testCaseId][stepNumber]
+                }));
+            }
+
             await api.post(`/runs/${id}/results`, {
                 test_case_id: testCaseId,
                 status,
                 actual_result: status === 'Pass' ? 'As expected' : 'Failed',
-                comments: ''
+                comments: '',
+                step_results: stepResultsArray
             });
             fetchRun();
         } catch (err) {
             alert('Failed to update status');
         }
+    };
+
+    const handleStepStatusChange = (testCaseId, stepNumber, status) => {
+        setStepResultsMap(prev => ({
+            ...prev,
+            [testCaseId]: {
+                ...(prev[testCaseId] || {}),
+                [stepNumber]: status
+            }
+        }));
     };
 
     const openDefectModal = (testCase) => {
@@ -149,36 +172,106 @@ const ExecuteRun = () => {
                         </thead>
                         <tbody className="divide-y divide-white/5">
                             {run.results && run.results.map((r, i) => (
-                                <tr key={r.test_case_id} className="hover:bg-white/5 transition-colors group">
-                                    <td className="px-6 py-4 text-white font-medium">{r.title}</td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded border ${r.priority === 'High' ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : r.priority === 'Medium' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
-                                            {r.priority}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded border ${getStatusColor(r.status)}`}>
-                                            {r.status || 'Pending'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => handleStatusUpdate(r.test_case_id, 'Pass')} className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg transition-colors" title="Mark as Pass">
-                                                <Check className="w-4 h-4" />
-                                            </button>
-                                            <button onClick={() => handleStatusUpdate(r.test_case_id, 'Fail')} className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-lg transition-colors" title="Mark as Fail">
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                            <button onClick={() => handleStatusUpdate(r.test_case_id, 'Blocked')} className="p-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-lg transition-colors" title="Mark as Blocked">
-                                                <Ban className="w-4 h-4" />
-                                            </button>
-                                            <div className="w-px h-6 bg-white/10 mx-1"></div>
-                                            <button onClick={() => openDefectModal(r)} className="flex items-center gap-1.5 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-bold text-xs border border-blue-500/20 rounded-lg transition-colors">
-                                                <Bug className="w-3.5 h-3.5" /> Log Defect
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
+                                <React.Fragment key={r.test_case_id}>
+                                    <tr className="hover:bg-white/5 transition-colors group">
+                                        <td className="px-6 py-4 text-white font-medium cursor-pointer" onClick={() => setExpandedCaseId(expandedCaseId === r.test_case_id ? null : r.test_case_id)}>
+                                            <div className="flex items-center gap-2">
+                                                <div className={`transition-transform ${expandedCaseId === r.test_case_id ? 'rotate-90' : ''}`}>
+                                                    <Play className="w-3.5 h-3.5 text-slate-500" />
+                                                </div>
+                                                {r.title}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 cursor-pointer" onClick={() => setExpandedCaseId(expandedCaseId === r.test_case_id ? null : r.test_case_id)}>
+                                            <span className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded border ${r.priority === 'High' ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : r.priority === 'Medium' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
+                                                {r.priority}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 cursor-pointer" onClick={() => setExpandedCaseId(expandedCaseId === r.test_case_id ? null : r.test_case_id)}>
+                                            <span className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded border ${getStatusColor(r.status)}`}>
+                                                {r.status || 'Pending'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => handleStatusUpdate(r.test_case_id, 'Pass')} className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg transition-colors" title="Mark as Pass">
+                                                    <Check className="w-4 h-4" />
+                                                </button>
+                                                <button onClick={() => handleStatusUpdate(r.test_case_id, 'Fail')} className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-lg transition-colors" title="Mark as Fail">
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                                <button onClick={() => handleStatusUpdate(r.test_case_id, 'Blocked')} className="p-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-lg transition-colors" title="Mark as Blocked">
+                                                    <Ban className="w-4 h-4" />
+                                                </button>
+                                                <div className="w-px h-6 bg-white/10 mx-1"></div>
+                                                <button onClick={() => openDefectModal(r)} className="flex items-center gap-1.5 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-bold text-xs border border-blue-500/20 rounded-lg transition-colors">
+                                                    <Bug className="w-3.5 h-3.5" /> Log Defect
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+
+                                    {/* Step-by-Step Execution Drawer */}
+                                    <AnimatePresence>
+                                        {expandedCaseId === r.test_case_id && (
+                                            <tr className="bg-white/[0.02]">
+                                                <td colSpan="4" className="p-0 border-b border-white/5">
+                                                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                                                        <div className="p-6">
+                                                            <h4 className="text-sm font-black text-slate-300 uppercase tracking-widest mb-4">Step-by-Step Execution</h4>
+                                                            {r.steps && r.steps.length > 0 ? (
+                                                                <div className="space-y-3">
+                                                                    {r.steps.map(step => {
+                                                                        const stepStatus = (stepResultsMap[r.test_case_id] && stepResultsMap[r.test_case_id][step.step_number]) || 
+                                                                            (r.step_results?.find(sr => sr.step_number === step.step_number)?.status) || 'Pending';
+                                                                        
+                                                                        return (
+                                                                            <div key={step._id} className="flex flex-col md:flex-row md:items-center gap-4 bg-white/5 border border-white/10 p-4 rounded-xl">
+                                                                                <div className="w-8 h-8 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold text-xs shrink-0">
+                                                                                    {step.step_number}
+                                                                                </div>
+                                                                                <div className="flex-1">
+                                                                                    <div className="text-sm font-medium text-white mb-1">{step.action}</div>
+                                                                                    <div className="text-xs text-slate-400 font-medium">Expected: <span className="text-slate-300">{step.expected_result}</span></div>
+                                                                                </div>
+                                                                                <div className="flex items-center gap-2 shrink-0">
+                                                                                    <button 
+                                                                                        onClick={() => handleStepStatusChange(r.test_case_id, step.step_number, 'Passed')} 
+                                                                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${stepStatus === 'Passed' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-emerald-500/5 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10'}`}
+                                                                                    >
+                                                                                        Pass
+                                                                                    </button>
+                                                                                    <button 
+                                                                                        onClick={() => handleStepStatusChange(r.test_case_id, step.step_number, 'Failed')} 
+                                                                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${stepStatus === 'Failed' ? 'bg-rose-500/20 border-rose-500/50 text-rose-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-500 hover:bg-rose-500/10'}`}
+                                                                                    >
+                                                                                        Fail
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="p-4 bg-white/5 border border-white/10 rounded-xl text-sm text-slate-400">
+                                                                    No steps defined for this test case.
+                                                                </div>
+                                                            )}
+                                                            <div className="mt-4 flex justify-end">
+                                                                <button onClick={() => {
+                                                                    const hasFails = r.steps?.some(step => stepResultsMap[r.test_case_id]?.[step.step_number] === 'Failed');
+                                                                    handleStatusUpdate(r.test_case_id, hasFails ? 'Fail' : 'Pass');
+                                                                }} className="px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 text-xs font-bold rounded-xl transition-colors">
+                                                                    Save Step Results & Update Status
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </motion.div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </AnimatePresence>
+                                </React.Fragment>
                             ))}
                         </tbody>
                     </table>

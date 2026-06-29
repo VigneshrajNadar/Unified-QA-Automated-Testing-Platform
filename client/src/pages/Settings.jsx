@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
     Settings as SettingsIcon, Save, ShieldAlert, CheckCircle2, 
     Activity, Shield, Bell, Key, Database, Sliders,
-    AlignLeft, Lock, FileText, Zap, ChevronRight
+    AlignLeft, Lock, FileText, Zap, ChevronRight, Users, Plus, Trash2, Webhook, Play, Terminal, Copy, Check, GitBranch
 } from 'lucide-react';
 import api from '../api';
 
@@ -13,7 +13,8 @@ const Settings = () => {
         complexity_threshold: 10,
         security_strictness: 'High',
         notifications_enabled: true,
-        rtm_strictness: 'Strict'
+        rtm_strictness: 'Strict',
+        defect_custom_fields: []
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -21,10 +22,42 @@ const Settings = () => {
     
     // Sidebar Tabs State
     const [activeTab, setActiveTab] = useState('quality');
+    
+    // RBAC state
+    const [roles, setRoles] = useState([]);
+    const [newRole, setNewRole] = useState({ name: '', description: '' });
+
+    // Webhooks state
+    const [webhooks, setWebhooks] = useState([]);
+    const [newWebhook, setNewWebhook] = useState({ name: '', url: '', secret: '', events: ['run_completed'] });
+
+    // CI/CD state
+    const [ciCopied, setCiCopied] = useState(false);
+    const [activeCiTab, setActiveCiTab] = useState('github');
 
     useEffect(() => {
         fetchSettings();
+        fetchRoles();
+        fetchWebhooks();
     }, []);
+
+    const fetchWebhooks = async () => {
+        try {
+            const res = await api.get('/webhooks');
+            setWebhooks(res.data);
+        } catch (err) {
+            console.error('Failed to fetch webhooks');
+        }
+    };
+
+    const fetchRoles = async () => {
+        try {
+            const res = await api.get('/roles');
+            setRoles(res.data);
+        } catch (err) {
+            console.error('Failed to fetch roles');
+        }
+    };
 
     const fetchSettings = async () => {
         try {
@@ -67,6 +100,48 @@ const Settings = () => {
         }
     };
 
+    const handleCreateRole = async (e) => {
+        e.preventDefault();
+        try {
+            await api.post('/roles', newRole);
+            setNewRole({ name: '', description: '' });
+            fetchRoles();
+        } catch (error) {
+            alert(error.response?.data?.error || error.message);
+        }
+    };
+
+    const handleDeleteRole = async (id) => {
+        if(!window.confirm('Delete this role?')) return;
+        try {
+            await api.delete(`/roles/${id}`);
+            fetchRoles();
+        } catch (error) {
+            alert(error.response?.data?.error || error.message);
+        }
+    };
+
+    const handleCreateWebhook = async (e) => {
+        e.preventDefault();
+        try {
+            await api.post('/webhooks', newWebhook);
+            setNewWebhook({ name: '', url: '', secret: '', events: ['run_completed'] });
+            fetchWebhooks();
+        } catch (error) {
+            alert(error.response?.data?.error || error.message);
+        }
+    };
+
+    const handleDeleteWebhook = async (id) => {
+        if(!window.confirm('Delete this webhook?')) return;
+        try {
+            await api.delete(`/webhooks/${id}`);
+            fetchWebhooks();
+        } catch (error) {
+            alert(error.response?.data?.error || error.message);
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex justify-center items-center h-[50vh]">
@@ -78,7 +153,11 @@ const Settings = () => {
     const tabs = [
         { id: 'quality', label: 'Quality Thresholds', icon: <Activity className="w-4 h-4" />, desc: 'Configure coverage and complexity limits.' },
         { id: 'security', label: 'Security & Gates', icon: <Shield className="w-4 h-4" />, desc: 'Manage vulnerability policies and strictness.' },
-        { id: 'notifications', label: 'Notifications', icon: <Bell className="w-4 h-4" />, desc: 'Alerts for failed runs or critical findings.' }
+        { id: 'notifications', label: 'Notifications', icon: <Bell className="w-4 h-4" />, desc: 'Alerts for failed runs or critical findings.' },
+        { id: 'custom-fields', label: 'Custom Fields', icon: <Database className="w-4 h-4" />, desc: 'Dynamic schemas for Defects.' },
+        { id: 'rbac', label: 'RBAC Configurator', icon: <Users className="w-4 h-4" />, desc: 'Manage custom roles and permissions.' },
+        { id: 'webhooks', label: 'Webhooks', icon: <Webhook className="w-4 h-4" />, desc: 'Integrate with Slack, Teams, or custom endpoints.' },
+        { id: 'integrations', label: 'CI/CD YAML Generator', icon: <Terminal className="w-4 h-4" />, desc: 'Export pipeline configs for GitHub/Jenkins.' }
     ];
 
     return (
@@ -162,6 +241,66 @@ const Settings = () => {
                                     </motion.div>
                                 )}
 
+                                {/* CUSTOM FIELDS TAB */}
+                                {activeTab === 'custom-fields' && (
+                                    <motion.div key="custom-fields" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+                                        <div className="border-b border-white/10 pb-4 mb-6">
+                                            <h2 className="text-xl font-bold text-white flex items-center gap-2"><Database className="w-5 h-5 text-indigo-400" /> Defect Custom Fields</h2>
+                                            <p className="text-sm text-slate-400 mt-1">Configure dynamic schemas. These fields will appear when logging new defects.</p>
+                                        </div>
+
+                                        <div className="space-y-4 max-h-[350px] overflow-y-auto custom-scrollbar pr-2">
+                                            {settings.defect_custom_fields.map((field, index) => (
+                                                <div key={index} className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-start gap-4">
+                                                    <div className="flex-1 grid grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Field Name</label>
+                                                            <input type="text" value={field.name} onChange={(e) => {
+                                                                const newFields = [...settings.defect_custom_fields];
+                                                                newFields[index].name = e.target.value;
+                                                                setSettings({ ...settings, defect_custom_fields: newFields });
+                                                            }} className="w-full px-3 py-2 bg-[#0D1424] border border-white/10 rounded-lg text-white text-sm focus:border-indigo-500/50 outline-none" placeholder="e.g. Browser Version" />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Field Type</label>
+                                                            <select value={field.type} onChange={(e) => {
+                                                                const newFields = [...settings.defect_custom_fields];
+                                                                newFields[index].type = e.target.value;
+                                                                setSettings({ ...settings, defect_custom_fields: newFields });
+                                                            }} className="w-full px-3 py-2 bg-[#0D1424] border border-white/10 rounded-lg text-white text-sm focus:border-indigo-500/50 outline-none appearance-none">
+                                                                <option value="text">Text</option>
+                                                                <option value="number">Number</option>
+                                                                <option value="dropdown">Dropdown</option>
+                                                            </select>
+                                                        </div>
+                                                        {field.type === 'dropdown' && (
+                                                            <div className="col-span-2">
+                                                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Options (Comma separated)</label>
+                                                                <input type="text" value={field.options?.join(', ')} onChange={(e) => {
+                                                                    const newFields = [...settings.defect_custom_fields];
+                                                                    newFields[index].options = e.target.value.split(',').map(s => s.trim());
+                                                                    setSettings({ ...settings, defect_custom_fields: newFields });
+                                                                }} className="w-full px-3 py-2 bg-[#0D1424] border border-white/10 rounded-lg text-white text-sm focus:border-indigo-500/50 outline-none" placeholder="Option 1, Option 2, Option 3" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <button type="button" onClick={() => {
+                                                        const newFields = settings.defect_custom_fields.filter((_, i) => i !== index);
+                                                        setSettings({ ...settings, defect_custom_fields: newFields });
+                                                    }} className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors mt-5">
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            <button type="button" onClick={() => {
+                                                setSettings({ ...settings, defect_custom_fields: [...settings.defect_custom_fields, { name: '', type: 'text', options: [] }] });
+                                            }} className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 border-dashed rounded-xl text-slate-400 hover:text-white font-bold text-sm transition-colors flex items-center justify-center gap-2">
+                                                <Plus className="w-4 h-4" /> Add Custom Field
+                                            </button>
+                                        </div>
+                                    </motion.div>
+                                )}
+
                                 {/* SECURITY TAB */}
                                 {activeTab === 'security' && (
                                     <motion.div key="security" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
@@ -222,6 +361,174 @@ const Settings = () => {
                                                 <div className="w-12 h-7 bg-[#0D1424] border border-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-slate-400 peer-checked:after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500 peer-checked:border-emerald-400"></div>
                                             </div>
                                         </label>
+                                    </motion.div>
+                                )}
+
+                                {/* RBAC TAB */}
+                                {activeTab === 'rbac' && (
+                                    <motion.div key="rbac" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
+                                        <div className="border-b border-white/10 pb-4 mb-6">
+                                            <h2 className="text-xl font-bold text-white flex items-center gap-2"><Users className="w-5 h-5 text-indigo-400" /> Dynamic Roles & Permissions</h2>
+                                            <p className="text-sm text-slate-400 mt-1">Configure custom roles with specific feature access for your enterprise.</p>
+                                        </div>
+
+                                        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                                            <h3 className="text-sm font-bold text-white mb-4">Create New Role</h3>
+                                            <div className="flex gap-4">
+                                                <input type="text" placeholder="Role Name (e.g., Guest QA)" value={newRole.name} onChange={e => setNewRole({...newRole, name: e.target.value})} className="flex-1 px-4 py-2 bg-[#0D1424] border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500/50" />
+                                                <input type="text" placeholder="Description" value={newRole.description} onChange={e => setNewRole({...newRole, description: e.target.value})} className="flex-1 px-4 py-2 bg-[#0D1424] border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500/50" />
+                                                <button type="button" onClick={handleCreateRole} className="px-6 py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-xl flex items-center gap-2">
+                                                    <Plus className="w-4 h-4" /> Add
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            {roles.map(role => (
+                                                <div key={role._id} className="flex justify-between items-center bg-[#0D1424] p-4 rounded-xl border border-white/5">
+                                                    <div>
+                                                        <h4 className="font-bold text-white flex items-center gap-2">
+                                                            {role.name}
+                                                            {!role.is_custom && <span className="text-[10px] bg-slate-500/20 text-slate-400 px-2 py-0.5 rounded uppercase tracking-wider font-black">System Default</span>}
+                                                        </h4>
+                                                        <p className="text-xs text-slate-400 mt-1">{role.description}</p>
+                                                    </div>
+                                                    {role.is_custom && (
+                                                        <button type="button" onClick={() => handleDeleteRole(role._id)} className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg">
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                            {roles.length === 0 && <p className="text-slate-500 text-sm italic">No custom roles defined.</p>}
+                                        </div>
+                                    </motion.div>
+                                )}
+
+                                {/* WEBHOOKS TAB */}
+                                {activeTab === 'webhooks' && (
+                                    <motion.div key="webhooks" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
+                                        <div className="border-b border-white/10 pb-4 mb-6">
+                                            <h2 className="text-xl font-bold text-white flex items-center gap-2"><Webhook className="w-5 h-5 text-emerald-400" /> Webhook Integrations</h2>
+                                            <p className="text-sm text-slate-400 mt-1">Send real-time JSON payloads to external services (Slack, Discord, custom servers) on specific events.</p>
+                                        </div>
+
+                                        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                                            <h3 className="text-sm font-bold text-white mb-4">Create New Webhook</h3>
+                                            <div className="space-y-4">
+                                                <div className="flex gap-4">
+                                                    <input type="text" placeholder="Webhook Name (e.g., Slack Alerts)" value={newWebhook.name} onChange={e => setNewWebhook({...newWebhook, name: e.target.value})} className="flex-1 px-4 py-2 bg-[#0D1424] border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500/50" />
+                                                    <input type="url" placeholder="Endpoint URL (https://...)" value={newWebhook.url} onChange={e => setNewWebhook({...newWebhook, url: e.target.value})} className="flex-[2] px-4 py-2 bg-[#0D1424] border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500/50" />
+                                                </div>
+                                                <div className="flex gap-4">
+                                                    <input type="password" placeholder="Secret Key (Optional, for HMAC signature)" value={newWebhook.secret} onChange={e => setNewWebhook({...newWebhook, secret: e.target.value})} className="flex-1 px-4 py-2 bg-[#0D1424] border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500/50" />
+                                                    <button type="button" onClick={handleCreateWebhook} className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl flex items-center gap-2">
+                                                        <Plus className="w-4 h-4" /> Add Webhook
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            {webhooks.map(hook => (
+                                                <div key={hook._id} className="flex justify-between items-center bg-[#0D1424] p-4 rounded-xl border border-white/5 group hover:border-white/20 transition-colors">
+                                                    <div>
+                                                        <h4 className="font-bold text-white flex items-center gap-2">
+                                                            {hook.name}
+                                                            {hook.is_active ? <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded uppercase tracking-wider font-black">Active</span> : <span className="text-[10px] bg-slate-500/20 text-slate-400 border border-slate-500/30 px-2 py-0.5 rounded uppercase tracking-wider font-black">Disabled</span>}
+                                                        </h4>
+                                                        <p className="text-xs text-slate-400 font-mono mt-1">{hook.url}</p>
+                                                    </div>
+                                                    <button type="button" onClick={() => handleDeleteWebhook(hook._id)} className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {webhooks.length === 0 && <p className="text-slate-500 text-sm italic">No webhooks configured.</p>}
+                                        </div>
+                                    </motion.div>
+                                )}
+
+                                {/* INTEGRATIONS TAB */}
+                                {activeTab === 'integrations' && (
+                                    <motion.div key="integrations" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
+                                        <div className="border-b border-white/10 pb-4 mb-6">
+                                            <h2 className="text-xl font-bold text-white flex items-center gap-2"><Terminal className="w-5 h-5 text-purple-400" /> CI/CD YAML Generator</h2>
+                                            <p className="text-sm text-slate-400 mt-1">Generate pipeline configurations to integrate automated testing directly into your CI/CD workflows.</p>
+                                        </div>
+
+                                        <div className="bg-[#0D1424] border border-white/10 rounded-2xl overflow-hidden">
+                                            <div className="flex border-b border-white/10">
+                                                <button type="button" onClick={() => setActiveCiTab('github')} className={`flex-1 py-3 text-sm font-bold transition-colors ${activeCiTab === 'github' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>GitHub Actions</button>
+                                                <button type="button" onClick={() => setActiveCiTab('jenkins')} className={`flex-1 py-3 text-sm font-bold transition-colors border-l border-white/10 ${activeCiTab === 'jenkins' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>Jenkinsfile</button>
+                                                <button type="button" onClick={() => setActiveCiTab('gitlab')} className={`flex-1 py-3 text-sm font-bold transition-colors border-l border-white/10 ${activeCiTab === 'gitlab' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>GitLab CI</button>
+                                            </div>
+                                            
+                                            <div className="relative">
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => {
+                                                        const code = activeCiTab === 'github' ? `name: QA Test Pipeline\n\non: [push, pull_request]\n\njobs:\n  run-tests:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v3\n      - name: Trigger QA Platform Tests\n        run: |\n          curl -X POST https://api.yourqa.com/v1/trigger-run \\ \n          -H "Authorization: Bearer \${{ secrets.QA_API_KEY }}" \\ \n          -d '{"project_id": "global"}'`
+                                                        : activeCiTab === 'jenkins' ? `pipeline {\n    agent any\n    stages {\n        stage('QA Platform Tests') {\n            steps {\n                withCredentials([string(credentialsId: 'qa-api-key', variable: 'QA_API_KEY')]) {\n                    sh '''\n                    curl -X POST https://api.yourqa.com/v1/trigger-run \\\n                    -H "Authorization: Bearer $QA_API_KEY" \\\n                    -d '{"project_id": "global"}'\n                    '''\n                }\n            }\n        }\n    }\n}`
+                                                        : `stages:\n  - test\n\nqa_platform_tests:\n  stage: test\n  script:\n    - curl -X POST https://api.yourqa.com/v1/trigger-run -H "Authorization: Bearer $QA_API_KEY" -d '{"project_id": "global"}'`;
+                                                        navigator.clipboard.writeText(code);
+                                                        setCiCopied(true);
+                                                        setTimeout(() => setCiCopied(false), 2000);
+                                                    }}
+                                                    className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors flex items-center gap-2 text-xs font-bold"
+                                                >
+                                                    {ciCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                                                    {ciCopied ? 'Copied' : 'Copy'}
+                                                </button>
+                                                <pre className="p-6 text-sm font-mono text-slate-300 overflow-x-auto custom-scrollbar">
+                                                    {activeCiTab === 'github' && (
+`name: QA Test Pipeline
+
+on: [push, pull_request]
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Trigger QA Platform Tests
+        run: |
+          curl -X POST https://api.yourqa.com/v1/trigger-run \\ 
+          -H "Authorization: Bearer \${{ secrets.QA_API_KEY }}" \\ 
+          -d '{"project_id": "global"}'`
+                                                    )}
+                                                    {activeCiTab === 'jenkins' && (
+`pipeline {
+    agent any
+    stages {
+        stage('QA Platform Tests') {
+            steps {
+                withCredentials([string(credentialsId: 'qa-api-key', variable: 'QA_API_KEY')]) {
+                    sh '''
+                    curl -X POST https://api.yourqa.com/v1/trigger-run \\
+                    -H "Authorization: Bearer $QA_API_KEY" \\
+                    -d '{"project_id": "global"}'
+                    '''
+                }
+            }
+        }
+    }
+}`
+                                                    )}
+                                                    {activeCiTab === 'gitlab' && (
+`stages:
+  - test
+
+qa_platform_tests:
+  stage: test
+  script:
+    - curl -X POST https://api.yourqa.com/v1/trigger-run \\
+      -H "Authorization: Bearer $QA_API_KEY" \\
+      -d '{"project_id": "global"}'`
+                                                    )}
+                                                </pre>
+                                            </div>
+                                        </div>
                                     </motion.div>
                                 )}
 

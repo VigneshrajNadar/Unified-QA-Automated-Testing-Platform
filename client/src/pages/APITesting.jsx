@@ -15,6 +15,7 @@ function APITesting() {
 
     const [collections, setCollections] = useState([]);
     const [monitors, setMonitors] = useState([]);
+    const [environments, setEnvironments] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const [showCreateCollectionModal, setShowCreateCollectionModal] = useState(false);
@@ -32,7 +33,17 @@ function APITesting() {
     useEffect(() => {
         fetchCollections();
         fetchMonitors();
+        fetchEnvironments();
     }, []);
+
+    const fetchEnvironments = async () => {
+        try {
+            const response = await api.get('/api-testing/environments');
+            setEnvironments(response.data);
+        } catch (error) {
+            console.error('Error fetching environments:', error);
+        }
+    };
 
     const fetchCollections = async () => {
         try {
@@ -230,6 +241,13 @@ function APITesting() {
                     <div className="flex items-center gap-2"><Clock className="w-4 h-4"/> Monitors</div>
                     {activeTabState === 'monitors' && <motion.div layoutId="apiTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />}
                 </button>
+                <button 
+                    onClick={() => setActiveTab('environments')}
+                    className={`px-6 py-4 text-sm font-black uppercase tracking-widest transition-all relative ${activeTabState === 'environments' ? 'text-indigo-400' : 'text-slate-500 hover:text-white'}`}
+                >
+                    <div className="flex items-center gap-2"><Server className="w-4 h-4"/> Environments</div>
+                    {activeTabState === 'environments' && <motion.div layoutId="apiTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />}
+                </button>
             </div>
 
             {/* TAB CONTENT: COLLECTIONS */}
@@ -341,6 +359,68 @@ function APITesting() {
                                         </button>
                                     </div>
                                 </motion.div>
+                            ))}
+                        </div>
+                    )}
+                </motion.div>
+            )}
+
+            {/* TAB CONTENT: ENVIRONMENTS */}
+            {activeTabState === 'environments' && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-xl font-bold text-white">Environment Variables</h2>
+                        <button onClick={() => {
+                            const name = prompt('Environment Name (e.g. Staging, Production):');
+                            if(name) {
+                                api.post('/api-testing/environments', { name }).then(() => fetchEnvironments());
+                            }
+                        }} className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-lg text-sm">
+                            + Add Environment
+                        </button>
+                    </div>
+
+                    {environments.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center p-16 border border-dashed border-white/10 rounded-3xl bg-[#0B0F19]/50 text-center">
+                            <Server className="w-10 h-10 text-indigo-400 mb-4" />
+                            <h3 className="text-xl font-bold text-white">No Environments</h3>
+                            <p className="text-slate-400 max-w-md mt-2">Create environments to store variables like {'{{base_url}}'} or {'{{auth_token}}'} that can be injected into your requests dynamically.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {environments.map(env => (
+                                <div key={env._id} className="bg-[#0B0F19]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                            <Layers className="w-5 h-5 text-indigo-400" /> {env.name}
+                                        </h3>
+                                        <button onClick={() => {
+                                            if(window.confirm('Delete environment?')) {
+                                                api.delete(`/api-testing/environments/${env._id}`).then(() => fetchEnvironments());
+                                            }
+                                        }} className="text-red-400 hover:text-red-300"><Trash2 className="w-4 h-4"/></button>
+                                    </div>
+                                    
+                                    <div className="space-y-3 mb-4 max-h-[200px] overflow-y-auto custom-scrollbar">
+                                        {env.variables && env.variables.map((v, i) => (
+                                            <div key={i} className="flex gap-2">
+                                                <input type="text" readOnly value={v.key} className="w-1/3 bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-xs text-indigo-300 font-mono" />
+                                                <input type="text" readOnly value={v.value} className="flex-1 bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-xs text-emerald-300 font-mono" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    
+                                    <button onClick={() => {
+                                        const key = prompt('Variable Name (e.g. base_url):');
+                                        if(!key) return;
+                                        const value = prompt('Variable Value:');
+                                        if(!value) return;
+                                        const vars = [...(env.variables || []), { key, value }];
+                                        api.put(`/api-testing/environments/${env._id}`, { variables: vars }).then(() => fetchEnvironments());
+                                    }} className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold rounded-lg border-dashed">
+                                        + Add Variable
+                                    </button>
+                                </div>
                             ))}
                         </div>
                     )}

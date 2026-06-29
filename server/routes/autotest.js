@@ -235,4 +235,37 @@ router.post('/execute', upload.single('projectFile'), async (req, res) => {
     }
 });
 
+// ============================================
+// CODE COVERAGE
+// ============================================
+
+const CoverageReport = require('../models/CoverageReport');
+
+router.post('/coverage', async (req, res) => {
+    try {
+        const { project_id, build_number, branch, metrics, percentage } = req.body;
+        const report = new CoverageReport({
+            project_id: project_id || null,
+            build_number,
+            branch: branch || 'main',
+            metrics: metrics || {},
+            percentage: percentage || 0,
+            uploaded_by: req.user ? req.user.userId : null
+        });
+        await report.save();
+        res.status(201).json(report);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/coverage', async (req, res) => {
+    try {
+        const reports = await CoverageReport.find().sort({ uploaded_at: -1 });
+        res.json(reports);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

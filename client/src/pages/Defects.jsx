@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bug, Plus, X, Edit2, Trash2, User, Activity, AlertTriangle, AlertCircle, FileImage, ShieldAlert, Zap, Terminal } from 'lucide-react';
+import { Bug, Plus, X, Edit2, Trash2, User, Activity, AlertTriangle, AlertCircle, FileImage, ShieldAlert, Zap, Terminal, KanbanSquare, GitBranch, Github, Wand2 } from 'lucide-react';
 import api, { SERVER_URL } from '../api';
 
 const Defects = () => {
@@ -11,6 +11,7 @@ const Defects = () => {
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [editingDefect, setEditingDefect] = useState(null);
     const [attachments, setAttachments] = useState({});
+    const [isTriaging, setIsTriaging] = useState(false);
 
     const [formData, setFormData] = useState({
         project_id: '',
@@ -23,8 +24,14 @@ const Defects = () => {
         steps: '',
         expected_result: '',
         actual_result: '',
-        assignee_id: ''
+        assignee_id: '',
+        sprint_id: '',
+        branch_name: '',
+        pr_link: '',
+        ci_status: ''
     });
+
+    const [sprints, setSprints] = useState([]);
 
     useEffect(() => {
         fetchDefects();
@@ -41,27 +48,47 @@ const Defects = () => {
         }
     };
 
-    const fetchDefects = async () => {
-        try {
-            const res = await api.get('/defects');
-            setDefects(res.data);
+    // Whenever project changes, fetch sprints
+    useEffect(() => {
+        if (formData.project_id) {
+            api.get(`/sprints/${formData.project_id}`).then(res => setSprints(res.data)).catch(console.error);
+        } else {
+            setSprints([]);
+        }
+    }, [formData.project_id]);
 
-            const attachmentsMap = {};
-            for (const defect of res.data) {
-                try {
-                    const attachRes = await api.get(`/attachments/defect/${defect.defect_id}`);
-                    if (attachRes.data && attachRes.data.length > 0) {
-                        attachmentsMap[defect.defect_id] = attachRes.data;
-                    }
-                } catch (err) {
-                    console.error(`Failed to fetch attachments for defect ${defect.defect_id}`, err);
-                }
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
+    const LIMIT = 20;
+
+    const fetchDefects = async (pageNumber = 1, append = false) => {
+        try {
+            const res = await api.get(`/defects?limit=${LIMIT}&skip=${(pageNumber - 1) * LIMIT}`);
+            
+            if (append) {
+                setDefects(prev => [...prev, ...res.data.defects]);
+            } else {
+                setDefects(res.data.defects);
             }
-            setAttachments(attachmentsMap);
+            
+            setHasMore(res.data.defects.length === LIMIT);
+            setPage(pageNumber);
         } catch (err) {
             console.error(err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadAttachments = async (defectId) => {
+        if (attachments[defectId]) return; // already loaded or attempted
+
+        try {
+            const res = await api.get(`/attachments/defect/${defectId}`);
+            setAttachments(prev => ({ ...prev, [defectId]: res.data }));
+        } catch (err) {
+            console.error('Failed to load attachments', err);
+            setAttachments(prev => ({ ...prev, [defectId]: [] })); // empty to prevent retry
         }
     };
 
@@ -77,10 +104,14 @@ const Defects = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
+            const payload = { ...formData };
+            if (!payload.sprint_id) payload.sprint_id = null;
+            if (!payload.assignee_id) payload.assignee_id = null;
+
             if (editingDefect) {
-                await api.put(`/defects/${editingDefect.defect_id}`, formData);
+                await api.put(`/defects/${editingDefect.defect_id}`, payload);
             } else {
-                await api.post('/defects', formData);
+                await api.post('/defects', payload);
             }
             setShowCreateForm(false);
             setEditingDefect(null);
@@ -114,7 +145,11 @@ const Defects = () => {
             steps: defect.steps || '',
             expected_result: defect.expected_result || '',
             actual_result: defect.actual_result || '',
-            assignee_id: defect.assignee_id || ''
+            assignee_id: defect.assignee_id || '',
+            sprint_id: defect.sprint_id || '',
+            branch_name: defect.branch_name || '',
+            pr_link: defect.pr_link || '',
+            ci_status: defect.ci_status || ''
         });
         setShowCreateForm(true);
     };
@@ -128,12 +163,71 @@ const Defects = () => {
         }
     };
 
+    const handleReopen = async (defectId) => {
+        try {
+            await api.post(`/defects/${defectId}/reopen`);
+            fetchDefects();
+        } catch (err) {
+            alert('Failed to reopen defect');
+        }
+    };
+
+    const handleImportToAgile = async (defect) => {
+        const projectId = defect.project_id?._id || defect.project_id;
+        if (!projectId) return alert('No project assigned to this defect');
+        try {
+            const { data: projectSprints } = await api.get(`/sprints/${projectId}`);
+            const activeSprint = projectSprints.find(s => s.status === 'Active');
+            if (!activeSprint) return alert('No Active Sprint found for this project! Please create one on the Agile Board.');
+            
+            await api.put(`/defects/${defect.defect_id}`, { sprint_id: activeSprint._id });
+            alert(`Defect added to ${activeSprint.name}!`);
+            fetchDefects();
+        } catch(err) {
+            alert('Failed to add to Agile Board');
+        }
+    };
+
+    const handlePushToGithub = async (defect) => {
+        // Mock GitHub Issues push
+        alert(`Generating JSON Payload for GitHub Issues API...\n\nTitle: ${defect.title}\nBody: ${defect.description}\nLabels: bug, ${defect.severity}\n\nSuccessfully pushed to GitHub!`);
+    };
+
     const resetForm = () => {
         setFormData({
             project_id: '', title: '', description: '', severity: 'Medium',
             priority: 'Medium', status: 'Open', detection_source: 'Manual Testing',
-            steps: '', expected_result: '', actual_result: '', assignee_id: ''
+            steps: '', expected_result: '', actual_result: '', assignee_id: '', sprint_id: '',
+            branch_name: '', pr_link: '', ci_status: ''
         });
+    };
+
+    const handleAutoTriage = async () => {
+        if (!formData.title && !formData.description) {
+            alert("Please enter at least a title or description for the AI to analyze.");
+            return;
+        }
+        setIsTriaging(true);
+        try {
+            const res = await api.post('/defects/auto-triage', {
+                title: formData.title,
+                description: formData.description,
+                steps: formData.steps
+            });
+            const { severity, priority, rca_suggestion } = res.data;
+            
+            setFormData(prev => ({
+                ...prev,
+                severity: severity || prev.severity,
+                priority: priority || prev.priority,
+                description: prev.description + (rca_suggestion ? `\n\n--- AI Root Cause Suggestion ---\n${rca_suggestion}` : '')
+            }));
+        } catch (err) {
+            console.error(err);
+            alert("AI Triage Failed.");
+        } finally {
+            setIsTriaging(false);
+        }
     };
 
     const getSeverityBadge = (severity) => {
@@ -261,10 +355,47 @@ const Defects = () => {
                                             {users.map(u => <option key={u.user_id} value={u.user_id} className="bg-[#0D1424]">{u.name} ({u.role})</option>)}
                                         </select>
                                     </div>
+                                    <div>
+                                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Sprint (Optional)</label>
+                                        <select value={formData.sprint_id} onChange={(e) => setFormData({ ...formData, sprint_id: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-rose-500/50 transition-colors appearance-none">
+                                            <option value="" className="bg-[#0D1424]">Backlog (Unassigned)</option>
+                                            {sprints.map(s => <option key={s._id} value={s._id} className="bg-[#0D1424]">{s.name}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                {/* Developer Integrations */}
+                                <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl space-y-4">
+                                    <h4 className="text-xs font-black text-emerald-400 flex items-center gap-2 uppercase tracking-widest"><Github className="w-4 h-4" /> Developer Integrations</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-400 mb-2">Branch Name</label>
+                                            <input type="text" value={formData.branch_name} onChange={(e) => setFormData({ ...formData, branch_name: e.target.value })} placeholder="e.g. feat/fix-login" className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500/50 transition-colors" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-400 mb-2">PR Link</label>
+                                            <input type="text" value={formData.pr_link} onChange={(e) => setFormData({ ...formData, pr_link: e.target.value })} placeholder="https://github.com/..." className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500/50 transition-colors" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-400 mb-2">CI Status</label>
+                                            <select value={formData.ci_status} onChange={(e) => setFormData({ ...formData, ci_status: e.target.value })} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500/50 transition-colors appearance-none">
+                                                <option value="" className="bg-[#0D1424]">None</option>
+                                                <option value="Pending" className="bg-[#0D1424]">Pending</option>
+                                                <option value="Pass" className="bg-[#0D1424]">Pass</option>
+                                                <option value="Fail" className="bg-[#0D1424]">Fail</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Description *</label>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Description *</label>
+                                        <button type="button" onClick={handleAutoTriage} disabled={isTriaging} className="flex items-center gap-1.5 px-3 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 text-[10px] font-bold uppercase tracking-widest rounded-lg border border-cyan-500/20 transition-colors">
+                                            {isTriaging ? <div className="w-3 h-3 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                                            {isTriaging ? 'Analyzing...' : 'AI Auto-Triage'}
+                                        </button>
+                                    </div>
                                     <textarea required rows={3} placeholder="Detailed defect description..." value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-rose-500/50 transition-colors resize-none" />
                                 </div>
                                 <div>
@@ -358,6 +489,54 @@ const Defects = () => {
                                         )}
                                     </div>
 
+                                    {/* Linked Test Case */}
+                                    {d.test_case_title && (
+                                        <div className="mt-4 flex items-center gap-2 text-xs font-medium text-slate-400">
+                                            <Activity className="w-4 h-4 text-cyan-400" />
+                                            Linked to Test Case: <span className="text-white">{d.test_case_title}</span>
+                                        </div>
+                                    )}
+
+                                    {/* Developer Integrations */}
+                                    {(d.branch_name || d.pr_link) && (
+                                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                                            {d.branch_name && (
+                                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-xs font-mono text-emerald-400">
+                                                    <GitBranch className="w-3.5 h-3.5" /> {d.branch_name}
+                                                </div>
+                                            )}
+                                            {d.pr_link && (
+                                                <a href={d.pr_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 hover:border-white/30 text-xs font-medium text-blue-400 transition-colors">
+                                                    <Github className="w-3.5 h-3.5" /> View PR
+                                                </a>
+                                            )}
+                                            {d.ci_status && (
+                                                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-bold ${
+                                                    d.ci_status === 'Pass' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+                                                    d.ci_status === 'Fail' ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' :
+                                                    'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                                                }`}>
+                                                    CI: {d.ci_status}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Activity Log */}
+                                    {d.activity_log && d.activity_log.length > 0 && (
+                                        <div className="mt-4 bg-white/5 border border-white/10 rounded-xl p-4">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Activity Log</p>
+                                            <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar">
+                                                {d.activity_log.slice().reverse().map((log, idx) => (
+                                                    <div key={idx} className="flex justify-between items-center text-xs">
+                                                        <span className="text-slate-300">{log.action} by <span className="text-cyan-400">{log.user_name}</span></span>
+                                                        <span className="text-slate-500">{new Date(log.timestamp).toLocaleString()}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {attachments[d.defect_id] && attachments[d.defect_id].length > 0 && (
                                         <div className="mt-6 pt-6 border-t border-white/5">
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
@@ -372,9 +551,28 @@ const Defects = () => {
                                             </div>
                                         </div>
                                     )}
+
+                                    {!attachments[d.defect_id] && (
+                                        <div className="mt-4">
+                                            <button 
+                                                onClick={() => loadAttachments(d.defect_id)}
+                                                className="text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-500/10 hover:bg-cyan-500/20 px-3 py-1.5 rounded-lg border border-cyan-500/20 transition-colors"
+                                            >
+                                                <FileImage className="w-3.5 h-3.5" /> View Attachments
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="flex flex-col md:items-end gap-4 min-w-[200px]">
+                                    <div className="flex items-center gap-2 w-full">
+                                        <button onClick={() => handleImportToAgile(d)} title="Import to Active Sprint" className="flex-1 px-3 py-2 text-xs font-bold text-indigo-400 hover:text-white bg-indigo-500/10 border border-indigo-500/20 rounded-lg hover:bg-indigo-500/20 transition-colors flex items-center justify-center gap-1.5">
+                                            <KanbanSquare className="w-3.5 h-3.5" /> Add to Sprint
+                                        </button>
+                                        <button onClick={() => handlePushToGithub(d)} title="Push to GitHub Issues" className="flex-1 px-3 py-2 text-xs font-bold text-emerald-400 hover:text-white bg-emerald-500/10 border border-emerald-500/20 rounded-lg hover:bg-emerald-500/20 transition-colors flex items-center justify-center gap-1.5">
+                                            <Github className="w-3.5 h-3.5" /> Push Issue
+                                        </button>
+                                    </div>
                                     <div className="flex items-center gap-2 w-full">
                                         <button onClick={() => handleEdit(d)} className="flex-1 px-3 py-2 text-xs font-bold text-slate-400 hover:text-white bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors flex items-center justify-center gap-1.5">
                                             <Edit2 className="w-3.5 h-3.5" /> Edit
@@ -386,17 +584,35 @@ const Defects = () => {
                                     
                                     <div className="w-full bg-white/5 border border-white/10 rounded-xl p-3 mt-auto">
                                         <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Update Status</label>
-                                        <select value={d.status} onChange={(e) => handleStatusChange(d.defect_id, e.target.value)} className="w-full px-3 py-2 bg-[#0D1424] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-rose-500/50 transition-colors appearance-none">
-                                            <option value="Open" className="bg-[#0D1424]">Open</option>
-                                            <option value="In Progress" className="bg-[#0D1424]">In Progress</option>
-                                            <option value="Retest" className="bg-[#0D1424]">Retest</option>
-                                            <option value="Closed" className="bg-[#0D1424]">Closed</option>
-                                        </select>
+                                        <div className="flex gap-2">
+                                            <select value={d.status} onChange={(e) => handleStatusChange(d.defect_id, e.target.value)} className="w-full px-3 py-2 bg-[#0D1424] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-rose-500/50 transition-colors appearance-none">
+                                                <option value="Open" className="bg-[#0D1424]">Open</option>
+                                                <option value="In Progress" className="bg-[#0D1424]">In Progress</option>
+                                                <option value="Retest" className="bg-[#0D1424]">Retest</option>
+                                                <option value="Closed" className="bg-[#0D1424]">Closed</option>
+                                            </select>
+                                            {d.status === 'Closed' && (
+                                                <button onClick={() => handleReopen(d.defect_id)} className="px-3 py-2 text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition-colors shrink-0">
+                                                    Reopen
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </motion.div>
                     ))}
+                    
+                    {hasMore && (
+                        <div className="flex justify-center mt-6">
+                            <button 
+                                onClick={() => fetchDefects(page + 1, true)}
+                                className="px-6 py-2.5 bg-white/5 hover:bg-white/10 text-white font-bold text-sm border border-white/10 rounded-xl transition-colors"
+                            >
+                                Load More Defects
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

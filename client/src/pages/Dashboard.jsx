@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
-import { FolderKanban, FileSpreadsheet, PlaySquare, Bug, Plus, ArrowRight } from 'lucide-react';
+import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { FolderKanban, FileSpreadsheet, PlaySquare, Bug, Plus, ArrowRight, TrendingDown } from 'lucide-react';
 import api from '../api';
 
 const Dashboard = () => {
@@ -79,7 +79,7 @@ const Dashboard = () => {
                     </h3>
                     {stats.defectsBySeverity?.length > 0 ? (
                         <div className="h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                                 <PieChart>
                                     <Pie
                                         data={stats.defectsBySeverity}
@@ -119,7 +119,7 @@ const Dashboard = () => {
                     </h3>
                     {stats.testCasesByPriority?.length > 0 ? (
                         <div className="h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                                 <BarChart data={stats.testCasesByPriority} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                                     <XAxis dataKey="name" stroke="#64748b" tick={{fill: '#64748b', fontSize: 12}} axisLine={false} tickLine={false} />
@@ -138,7 +138,37 @@ const Dashboard = () => {
             </div>
 
             {/* Bottom Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Burndown Chart */}
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.45 }}
+                    className="bg-[#0B0F19]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl lg:col-span-1"
+                >
+                    <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                        <TrendingDown className="w-5 h-5 text-indigo-400" /> Defect Burndown
+                    </h3>
+                    {stats.burndownData?.length > 0 ? (
+                        <div className="h-[250px]">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                                <LineChart data={stats.burndownData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                    <XAxis dataKey="date" stroke="#64748b" tick={{fill: '#64748b', fontSize: 10}} axisLine={false} tickLine={false} />
+                                    <YAxis stroke="#64748b" tick={{fill: '#64748b', fontSize: 10}} axisLine={false} tickLine={false} />
+                                    <RechartsTooltip contentStyle={{ backgroundColor: '#0D1424', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }} />
+                                    <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} />
+                                    <Line type="monotone" dataKey="ideal" name="Ideal Trend" stroke="#64748b" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                                    <Line type="monotone" dataKey="remaining" name="Actual Open" stroke="#818cf8" strokeWidth={3} dot={{r: 4, fill: '#818cf8', strokeWidth: 2, stroke: '#0B0F19'}} activeDot={{r: 6}} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    ) : (
+                        <div className="h-[250px] flex items-center justify-center border border-white/5 rounded-xl bg-white/5 border-dashed">
+                            <p className="text-sm font-medium text-slate-500">No burndown data</p>
+                        </div>
+                    )}
+                </motion.div>
                 <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}

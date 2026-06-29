@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Play, Plus, X, Trash2, FolderOpen, Globe, Activity, CheckCircle2, AlertCircle, Clock, ShieldCheck, Lock, Code2, PlaySquare } from 'lucide-react';
+import { ArrowLeft, Play, Plus, X, Trash2, FolderOpen, Globe, Activity, CheckCircle2, AlertCircle, Clock, ShieldCheck, Lock, Code2, PlaySquare, Database, UploadCloud } from 'lucide-react';
+import Papa from 'papaparse';
 import api from '../api';
 
 function APICollection() {
@@ -20,9 +21,22 @@ function APICollection() {
         name: '', method: 'GET', url: '', headers: '', body: '', params: '', auth_type: 'none', auth_value: '', expected_status: 200, schema: '', description: ''
     });
 
+    const [environments, setEnvironments] = useState([]);
+    const [selectedEnvId, setSelectedEnvId] = useState('');
+
     useEffect(() => {
         fetchCollection();
+        fetchEnvironments();
     }, [collectionId]);
+
+    const fetchEnvironments = async () => {
+        try {
+            const res = await api.get('/api-testing/environments');
+            setEnvironments(res.data);
+        } catch (error) {
+            console.error(error);
+        }
+    };
 
     const fetchCollection = async () => {
         try {
@@ -53,8 +67,15 @@ function APICollection() {
         setResult(null);
         setSelectedRequest(request);
 
+        // Get env vars
+        const env = environments.find(e => e._id === selectedEnvId);
+        const envVars = {};
+        if (env && env.variables) {
+            env.variables.forEach(v => { envVars[v.key] = v.value; });
+        }
+
         try {
-            const response = await api.post(`/api-testing/execute/${request.request_id}`);
+            const response = await api.post(`/api-testing/execute/${request.request_id}`, { envVars });
             setResult(response.data);
         } catch (error) {
             setResult({ success: false, error_message: error.message });
@@ -66,15 +87,76 @@ function APICollection() {
     const handleExecuteAll = async () => {
         if (!window.confirm(`Execute all ${requests.length} requests in this collection?`)) return;
         setExecuting(true);
+        
+        const env = environments.find(e => e._id === selectedEnvId);
+        const envVars = {};
+        if (env && env.variables) {
+            env.variables.forEach(v => { envVars[v.key] = v.value; });
+        }
+
         try {
-            const response = await api.post(`/api-testing/execute-collection/${collectionId}`);
-            alert(`✅ Executed ${response.data.total} requests!\nCheck individual results below.`);
+            // Note: backend expects /execute/collection/:id not execute-collection
+            const response = await api.post(`/api-testing/execute/collection/${collectionId}`, { envVars });
+            alert(`✅ Executed ${response.data.total || requests.length} requests!\nCheck individual results below.`);
             fetchCollection();
         } catch (error) {
             alert('Error executing collection: ' + error.message);
         } finally {
             setExecuting(false);
         }
+    };
+
+    const handleDataDrivenExecution = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: async (results) => {
+                const data = results.data;
+                if (!data || data.length === 0) {
+                    alert('CSV file is empty or invalid.');
+                    return;
+                }
+
+                if (!window.confirm(`Run collection for ${data.length} data rows?`)) return;
+                setExecuting(true);
+
+                const env = environments.find(env => env._id === selectedEnvId);
+                const baseEnvVars = {};
+                if (env && env.variables) {
+                    env.variables.forEach(v => { baseEnvVars[v.key] = v.value; });
+                }
+
+                let totalExecuted = 0;
+                let totalPassed = 0;
+
+                try {
+                    for (let i = 0; i < data.length; i++) {
+                        const row = data[i];
+                        const mergedVars = { ...baseEnvVars, ...row };
+                        
+                        const response = await api.post(`/api-testing/execute/collection/${collectionId}`, { envVars: mergedVars });
+                        totalExecuted += response.data.total || 0;
+                        totalPassed += response.data.passed || 0;
+                    }
+
+                    alert(`✅ Data-Driven Execution Complete!\nExecuted ${totalExecuted} total requests.\nPassed: ${totalPassed}`);
+                    fetchCollection();
+                } catch (error) {
+                    alert('Error during data-driven execution: ' + error.message);
+                } finally {
+                    setExecuting(false);
+                }
+            },
+            error: (error) => {
+                alert('Error parsing CSV: ' + error.message);
+            }
+        });
+        
+        // reset file input
+        e.target.value = null;
     };
 
     const handleDeleteRequest = async (requestId, name) => {
@@ -134,10 +216,26 @@ function APICollection() {
                         <p className="text-sm text-slate-400 mt-1">{collection.description || 'No description provided.'}</p>
                     </div>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-3 items-center">
+                    {environments.length > 0 && (
+                        <select 
+                            value={selectedEnvId} 
+                            onChange={(e) => setSelectedEnvId(e.target.value)}
+                            className="bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm text-white font-medium focus:outline-none focus:border-indigo-500/50"
+                        >
+                            <option value="">No Environment</option>
+                            {environments.map(env => (
+                                <option key={env._id} value={env._id}>{env.name}</option>
+                            ))}
+                        </select>
+                    )}
                     <button onClick={handleExecuteAll} disabled={executing || requests.length === 0} className="flex items-center gap-2 px-5 py-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 font-bold text-sm rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                         <PlaySquare className="w-4 h-4" /> Run All
                     </button>
+                    <label className={`flex items-center gap-2 px-5 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-bold text-sm rounded-xl transition-colors cursor-pointer ${executing || requests.length === 0 ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <Database className="w-4 h-4" /> Run w/ CSV Data
+                        <input type="file" accept=".csv" className="hidden" onChange={handleDataDrivenExecution} disabled={executing || requests.length === 0} />
+                    </label>
                     <button onClick={() => setShowRequestModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-sm rounded-xl transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)] hover:shadow-[0_0_25px_rgba(79,70,229,0.5)]">
                         <Plus className="w-4 h-4" /> New Request
                     </button>

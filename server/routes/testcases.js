@@ -20,8 +20,9 @@ router.get('/', async (req, res) => {
     try {
         let filter = {};
         if (req.user && req.user.role && req.user.role.toLowerCase() !== 'admin') {
-            // Assignee ID not natively implemented in schema yet, filtering by creator for now
-            filter.created_by = req.user.userId;
+            // Let testers view all test cases for the projects they have access to.
+            // If they are developers, maybe restrict. But currently 'tester' should see all tests in a project.
+            // So we don't strictly filter by created_by here, we rely on the project level RBAC later.
         }
         if (project_id) {
             filter.project_id = project_id;
@@ -59,7 +60,7 @@ router.get('/', async (req, res) => {
 
 // Create test case
 router.post('/', async (req, res) => {
-    const { project_id, module_id, title, description, preconditions, steps, expected_result, priority, test_types } = req.body;
+    const { project_id, module_id, title, description, preconditions, steps, expected_result, priority, test_type } = req.body;
 
     if (!project_id || !title) return res.status(400).json({ message: 'Project and Title are required' });
 
@@ -69,9 +70,11 @@ router.post('/', async (req, res) => {
             module_id: module_id || null,
             title,
             description,
-            steps: steps || preconditions, // mapping preconditions loosely if needed
+            preconditions,
+            steps,
             expected_result,
             priority,
+            test_type: test_type || 'Manual',
             created_by: req.user ? req.user.userId : null
         });
 
@@ -84,7 +87,7 @@ router.post('/', async (req, res) => {
 
 // Update test case
 router.put('/:id', async (req, res) => {
-    const { title, description, preconditions, steps, expected_result, priority, status } = req.body;
+    const { title, description, preconditions, steps, expected_result, priority, status, test_type } = req.body;
     const testCaseId = req.params.id;
 
     try {
@@ -93,10 +96,12 @@ router.put('/:id', async (req, res) => {
             { 
                 title, 
                 description, 
-                steps: steps || preconditions,
+                preconditions,
+                steps,
                 expected_result, 
                 priority, 
                 status, 
+                test_type,
                 updated_at: Date.now() 
             },
             { new: true }
@@ -115,6 +120,48 @@ router.delete('/:id', async (req, res) => {
         const result = await TestCase.findByIdAndDelete(req.params.id);
         if (!result) return res.status(404).json({ message: 'Test case not found' });
         res.json({ message: 'Test case deleted' });
+    } catch (error) {
+        res.status(500).json({ message: 'Database error', error: error.message });
+    }
+});
+
+// Clone Test Case
+router.post('/:id/clone', async (req, res) => {
+    try {
+        const original = await TestCase.findById(req.params.id);
+        if (!original) return res.status(404).json({ message: 'Test case not found' });
+        
+        const clone = new TestCase({
+            project_id: original.project_id,
+            module_id: original.module_id,
+            title: `Copy of ${original.title}`,
+            description: original.description,
+            preconditions: original.preconditions,
+            steps: original.steps,
+            expected_result: original.expected_result,
+            priority: original.priority,
+            test_type: original.test_type,
+            status: 'Draft',
+            created_by: req.user ? req.user.userId : null
+        });
+
+        await clone.save();
+        res.status(201).json({ message: 'Test case cloned successfully', testCaseId: clone._id });
+    } catch (error) {
+        res.status(500).json({ message: 'Database error', error: error.message });
+    }
+});
+
+// Bulk Delete Test Cases
+router.post('/bulk-delete', async (req, res) => {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: 'No IDs provided' });
+    }
+    
+    try {
+        await TestCase.deleteMany({ _id: { $in: ids } });
+        res.json({ message: `${ids.length} test cases deleted` });
     } catch (error) {
         res.status(500).json({ message: 'Database error', error: error.message });
     }

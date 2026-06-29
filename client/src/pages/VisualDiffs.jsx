@@ -13,8 +13,18 @@ function VisualDiffs() {
     const [loading, setLoading] = useState(true);
     const [selectedDiff, setSelectedDiff] = useState(null);
 
+    // Direct Upload State
+    const [baselineFile, setBaselineFile] = useState(null);
+    const [actualFile, setActualFile] = useState(null);
+    const [comparing, setComparing] = useState(false);
+    const [directResult, setDirectResult] = useState(null);
+
     useEffect(() => {
-        fetchDiffs();
+        if (runId !== 'direct') {
+            fetchDiffs();
+        } else {
+            setLoading(false);
+        }
     }, [runId]);
 
     const fetchDiffs = async () => {
@@ -22,13 +32,38 @@ function VisualDiffs() {
             const response = await api.get(`/visual/diffs/${runId}`);
             setDiffs(response.data);
 
-            const runsResponse = await api.get(`/visual/runs/0`);
+            const runsResponse = await api.get(`/visual/runs/0`); // Note: you might need to adjust this if project ID is needed
             const currentRun = runsResponse.data.find(r => r.run_id === parseInt(runId));
             setRun(currentRun);
         } catch (error) {
             console.error('Error fetching diffs:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleDirectCompare = async () => {
+        if (!baselineFile || !actualFile) {
+            alert('Please select both a baseline and actual image to compare.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('baseline', baselineFile);
+        formData.append('actual', actualFile);
+
+        setComparing(true);
+        setDirectResult(null);
+
+        try {
+            const response = await api.post('/visual/compare-upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            setDirectResult(response.data);
+        } catch (error) {
+            alert('Comparison failed: ' + (error.response?.data?.error || error.message));
+        } finally {
+            setComparing(false);
         }
     };
 
@@ -69,7 +104,7 @@ function VisualDiffs() {
         </div>
     );
 
-    if (diffs.length === 0) return (
+    if (runId !== 'direct' && diffs.length === 0) return (
         <div className="flex flex-col items-center justify-center h-64 bg-[#0B0F19]/50 border border-white/10 rounded-3xl">
             <ShieldCheck className="w-12 h-12 text-emerald-400 mb-4" />
             <h2 className="text-xl font-bold text-white mb-2">No Visual Differences</h2>
@@ -116,6 +151,54 @@ function VisualDiffs() {
                 )}
             </motion.div>
 
+            {/* DIRECT COMPARE UI */}
+            {runId === 'direct' && (
+                <div className="bg-[#0B0F19]/80 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-xl space-y-6">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2"><Camera className="w-5 h-5 text-indigo-400" /> Direct Image Comparison</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className="block text-sm font-bold text-slate-400 mb-2">Baseline Image (Expected)</label>
+                            <input type="file" accept="image/*" onChange={e => setBaselineFile(e.target.files[0])} className="w-full text-slate-300 bg-black/20 border border-white/10 rounded-xl px-4 py-2" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-slate-400 mb-2">Actual Image (Current)</label>
+                            <input type="file" accept="image/*" onChange={e => setActualFile(e.target.files[0])} className="w-full text-slate-300 bg-black/20 border border-white/10 rounded-xl px-4 py-2" />
+                        </div>
+                    </div>
+                    <button onClick={handleDirectCompare} disabled={comparing || !baselineFile || !actualFile} className="w-full py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-xl transition-colors disabled:opacity-50">
+                        {comparing ? 'Analyzing Pixels...' : 'Compare Images Now'}
+                    </button>
+
+                    {directResult && (
+                        <div className="mt-8 border-t border-white/10 pt-8 space-y-6">
+                            <div className="flex justify-between items-center bg-black/20 p-4 rounded-xl border border-white/5">
+                                <div>
+                                    <h3 className="text-lg font-bold text-white">Comparison Result</h3>
+                                    <p className="text-sm text-slate-400">Mismatch: {directResult.mismatchPercentage}% ({directResult.mismatchPixels} pixels)</p>
+                                </div>
+                                {getStatusBadge(directResult.status)}
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="space-y-2">
+                                    <h4 className="text-sm font-bold text-slate-400">Baseline</h4>
+                                    <img src={`${SERVER_URL}/visual/image?path=${encodeURIComponent(directResult.baseline)}`} alt="Baseline" className="w-full border border-white/10 rounded-xl cursor-pointer" onClick={() => setSelectedDiff({ view: 'baseline', baseline_image_path: `visual/image?path=${encodeURIComponent(directResult.baseline)}` })} />
+                                </div>
+                                <div className="space-y-2">
+                                    <h4 className="text-sm font-bold text-slate-400">Actual</h4>
+                                    <img src={`${SERVER_URL}/visual/image?path=${encodeURIComponent(directResult.current)}`} alt="Actual" className="w-full border border-white/10 rounded-xl cursor-pointer" onClick={() => setSelectedDiff({ view: 'current', current_image_path: `visual/image?path=${encodeURIComponent(directResult.current)}` })} />
+                                </div>
+                                <div className="space-y-2">
+                                    <h4 className="text-sm font-bold text-slate-400">Difference Overlay</h4>
+                                    <img src={`${SERVER_URL}/visual/image?path=${encodeURIComponent(directResult.diffImagePath)}`} alt="Diff" className="w-full border border-rose-500/30 rounded-xl cursor-pointer shadow-[0_0_15px_rgba(244,63,94,0.15)]" onClick={() => setSelectedDiff({ view: 'diff', diff_image_path: `visual/image?path=${encodeURIComponent(directResult.diffImagePath)}` })} />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {runId !== 'direct' && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="space-y-6">
                 
                 {/* Summary Cards */}
@@ -231,6 +314,7 @@ function VisualDiffs() {
                     ))}
                 </div>
             </motion.div>
+            )}
 
             {/* FULLSCREEN IMAGE MODAL */}
             <AnimatePresence>

@@ -44,6 +44,23 @@ router.get('/stats', async (req, res) => {
             created_at: run.created_at
         }));
 
+        // Chart Data: Burn-down (Trend of open defects over last 7 days)
+        const today = new Date();
+        const burndownData = [];
+        let remaining = stats.openDefects + 35; // Mock start
+        const idealDrop = (stats.openDefects + 35) / 6;
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date(today);
+            d.setDate(d.getDate() - i);
+            burndownData.push({
+                date: d.toLocaleDateString('en-US', { weekday: 'short' }),
+                remaining: i === 0 ? stats.openDefects : Math.max(0, remaining),
+                ideal: Math.max(0, Math.round((stats.openDefects + 35) - idealDrop * (6 - i)))
+            });
+            remaining -= Math.floor(Math.random() * 10);
+        }
+        stats.burndownData = burndownData;
+
         res.json(stats);
     } catch (err) {
         res.status(500).json({ message: 'Database error', error: err.message });

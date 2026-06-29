@@ -4,6 +4,7 @@ const testRunSchema = new mongoose.Schema({
   project_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: true },
   name: { type: String, required: true },
   description: { type: String, default: null },
+  test_suite_id: { type: mongoose.Schema.Types.ObjectId, ref: 'TestSuite' },
   status: { type: String, enum: ['Pending', 'In Progress', 'Completed', 'Aborted'], default: 'Pending' },
   test_type_id: { type: mongoose.Schema.Types.ObjectId, ref: 'TestType' },
   environment: { type: String, default: 'Production' },
@@ -14,7 +15,12 @@ const testRunSchema = new mongoose.Schema({
     test_case_id: { type: mongoose.Schema.Types.ObjectId, ref: 'TestCase' },
     status: { type: String, enum: ['Passed', 'Failed', 'Blocked', 'Not Run', 'Skipped'], default: 'Not Run' },
     actual_result: { type: String, default: null },
-    comments: { type: String, default: null }
+    comments: { type: String, default: null },
+    step_results: [{
+        step_number: Number,
+        status: { type: String, enum: ['Passed', 'Failed', 'Blocked', 'Pending'], default: 'Pending' },
+        actual_result: { type: String, default: null }
+    }]
   }],
   metrics: { type: mongoose.Schema.Types.Mixed }, // For autotest metrics
   created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

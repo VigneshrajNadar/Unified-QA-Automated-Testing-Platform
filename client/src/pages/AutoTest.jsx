@@ -13,6 +13,9 @@ const AutoTest = () => {
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState(null);
     const [activeTab, setActiveTab] = useState('terminal');
+    const [pageView, setPageView] = useState('pipeline'); // 'pipeline' or 'coverage'
+    const [coverageHistory, setCoverageHistory] = useState([]);
+
     const [selectedTests, setSelectedTests] = useState({
         unit: true,
         static: true,
@@ -27,7 +30,19 @@ const AutoTest = () => {
 
     useEffect(() => {
         fetchProjects();
-    }, []);
+        if (pageView === 'coverage') {
+            fetchCoverage();
+        }
+    }, [pageView]);
+
+    const fetchCoverage = async () => {
+        try {
+            const res = await api.get('/autotest/coverage');
+            setCoverageHistory(res.data);
+        } catch (err) {
+            console.error('Failed to fetch coverage', err);
+        }
+    };
 
     const fetchProjects = async () => {
         try {
@@ -115,10 +130,79 @@ const AutoTest = () => {
                     <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
                         <Cpu className="w-8 h-8 text-cyan-400" /> Automated Pipeline
                     </h1>
-                    <p className="text-sm text-slate-400 mt-1">Configure test suites and execute automated CI/CD checks</p>
+                    <p className="text-sm text-slate-400 mt-1">Configure test suites, execute CI/CD checks, and view analytics.</p>
+                </div>
+                <div className="flex bg-black/40 p-1 rounded-xl border border-white/10 z-10 relative">
+                    <button onClick={() => setPageView('pipeline')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${pageView === 'pipeline' ? 'bg-cyan-500/20 text-cyan-400' : 'text-slate-400 hover:text-white'}`}>Pipeline</button>
+                    <button onClick={() => setPageView('coverage')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${pageView === 'coverage' ? 'bg-cyan-500/20 text-cyan-400' : 'text-slate-400 hover:text-white'}`}>Coverage Dashboard</button>
                 </div>
             </motion.div>
 
+            {pageView === 'coverage' ? (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-[#0B0F19]/80 backdrop-blur-xl border border-white/10 rounded-3xl shadow-xl p-6">
+                    <div className="flex items-center gap-3 mb-8 border-b border-white/10 pb-6">
+                        <Search className="w-6 h-6 text-cyan-400" />
+                        <h2 className="text-xl font-bold text-white">Global Code Coverage Trends</h2>
+                    </div>
+
+                    {coverageHistory.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center p-16 border border-dashed border-white/10 rounded-3xl bg-black/20 text-center">
+                            <ActivitySquare className="w-12 h-12 text-slate-500 mb-4 opacity-50" />
+                            <h3 className="text-xl font-bold text-white mb-2">No Coverage Reports Yet</h3>
+                            <p className="text-slate-400">Run a pipeline with Code Coverage enabled to see historic trends here.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div className="bg-gradient-to-br from-cyan-900/30 to-blue-900/30 border border-cyan-500/20 rounded-2xl p-6 flex flex-col justify-center items-center">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400 mb-2 block">Latest Overall %</span>
+                                    <span className="text-5xl font-black text-white">{coverageHistory[0].percentage}%</span>
+                                </div>
+                                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col justify-center items-center">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Lines Covered</span>
+                                    <span className="text-3xl font-black text-emerald-400">{coverageHistory[0].metrics?.lines_covered || 0}</span>
+                                </div>
+                                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col justify-center items-center">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Branches</span>
+                                    <span className="text-3xl font-black text-amber-400">{coverageHistory[0].metrics?.branches_covered || 0}</span>
+                                </div>
+                                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col justify-center items-center">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Functions</span>
+                                    <span className="text-3xl font-black text-purple-400">{coverageHistory[0].metrics?.functions_covered || 0}</span>
+                                </div>
+                            </div>
+                            
+                            <h3 className="text-lg font-bold text-white mt-8 mb-4 border-b border-white/5 pb-2">History Log</h3>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm text-slate-300">
+                                    <thead className="text-xs font-black uppercase tracking-widest text-slate-500 bg-white/5">
+                                        <tr>
+                                            <th className="px-4 py-3 rounded-tl-lg">Build #</th>
+                                            <th className="px-4 py-3">Branch</th>
+                                            <th className="px-4 py-3">Upload Date</th>
+                                            <th className="px-4 py-3 text-right rounded-tr-lg">Coverage %</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {coverageHistory.map((rep, i) => (
+                                            <tr key={rep._id} className="hover:bg-white/5">
+                                                <td className="px-4 py-3 font-mono text-cyan-400">{rep.build_number}</td>
+                                                <td className="px-4 py-3 font-mono text-slate-400">{rep.branch}</td>
+                                                <td className="px-4 py-3 text-slate-500">{new Date(rep.uploaded_at).toLocaleString()}</td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <span className={`px-2 py-1 rounded text-xs font-bold ${rep.percentage < 60 ? 'bg-rose-500/20 text-rose-400' : rep.percentage < 80 ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                                                        {rep.percentage}%
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                </motion.div>
+            ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
                 {/* CONFIGURATION PANEL */}
@@ -604,6 +688,7 @@ const AutoTest = () => {
                     )}
                 </motion.div>
             </div>
+            )}
         </div>
     );
 };

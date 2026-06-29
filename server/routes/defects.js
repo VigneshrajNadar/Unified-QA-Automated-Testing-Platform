@@ -1,7 +1,40 @@
 const express = require('express');
 const Defect = require('../models/Defect');
+const Notification = require('../models/Notification');
+const { callOpenRouter } = require('./ai');
 
 const router = express.Router();
+
+// Auto Triage using OpenRouter AI
+router.post('/auto-triage', async (req, res) => {
+    const { title, description, steps } = req.body;
+    if (!title && !description) return res.status(400).json({ error: 'Title or description required for triage' });
+
+    try {
+        const fullPrompt = `You are an expert QA and DevOps Engineer. Analyze the following software defect and determine its Severity (Critical, High, Medium, Low) and Priority (High, Medium, Low). Also, provide a short Root Cause Analysis (RCA) or developer suggestion for how to fix it based on the details.
+
+Title: ${title}
+Description: ${description}
+Steps: ${steps}
+
+RETURN ONLY RAW JSON matching this schema exactly, with no markdown or text outside it:
+{
+    "severity": "High",
+    "priority": "Medium",
+    "rca_suggestion": "Short explanation of possible cause and fix"
+}`;
+
+        let content = await callOpenRouter([{ role: 'user', content: fullPrompt }]);
+
+        if (content.startsWith('```json')) content = content.replace(/^```json\n/, '').replace(/\n```$/, '');
+        else if (content.startsWith('```')) content = content.replace(/^```\n/, '').replace(/\n```$/, '');
+
+        res.json(JSON.parse(content));
+    } catch (err) {
+        console.error('Triage Error:', err.message);
+        res.status(500).json({ error: 'Failed to auto-triage' });
+    }
+});
 
 // Create Defect
 router.post('/', async (req, res) => {
@@ -18,7 +51,10 @@ router.post('/', async (req, res) => {
         steps,
         expected_result,
         actual_result,
-        detection_source
+        detection_source,
+        branch_name,
+        pr_link,
+        ci_status
     } = req.body;
 
     if (!title || !severity || !priority) {
@@ -39,10 +75,24 @@ router.post('/', async (req, res) => {
             steps,
             expected_result,
             actual_result,
+            branch_name,
+            pr_link,
+            ci_status: ci_status || null,
             reported_by: req.user ? req.user.userId : null
         });
 
         await newDefect.save();
+        
+        if (newDefect.assignee_id) {
+            await Notification.create({
+                user_id: newDefect.assignee_id,
+                title: 'New Defect Assigned',
+                message: `You have been assigned to defect: ${newDefect.title}`,
+                link: '/defects',
+                type: 'assignment'
+            });
+        }
+        
         res.status(201).json({ message: 'Defect created successfully', defectId: newDefect._id });
     } catch (error) {
         res.status(500).json({ message: 'Database error', error: error.message });
@@ -51,7 +101,7 @@ router.post('/', async (req, res) => {
 
 // Get All Defects
 router.get('/', async (req, res) => {
-    const { project_id } = req.query;
+    const { project_id, limit, skip } = req.query;
 
     try {
         let filter = {};
@@ -61,13 +111,21 @@ router.get('/', async (req, res) => {
             filter.project_id = project_id;
         }
 
-        const defects = await Defect.find(filter)
-            .populate('assigned_to', 'name')
-            .populate('assignee_id', 'name')
-            .populate('test_case_id', 'title')
-            .populate('project_id', 'name')
-            .sort({ created_at: -1 })
-            .lean();
+        const queryLimit = parseInt(limit) || 20;
+        const querySkip = parseInt(skip) || 0;
+
+        const [defects, total] = await Promise.all([
+            Defect.find(filter)
+                .populate('assigned_to', 'name')
+                .populate('assignee_id', 'name')
+                .populate('test_case_id', 'title')
+                .populate('project_id', 'name')
+                .sort({ created_at: -1 })
+                .skip(querySkip)
+                .limit(queryLimit)
+                .lean(),
+            Defect.countDocuments(filter)
+        ]);
 
         const formatted = defects.map(d => ({
             ...d,
@@ -78,7 +136,7 @@ router.get('/', async (req, res) => {
             project_name: d.project_id ? d.project_id.name : null
         }));
 
-        res.json(formatted);
+        res.json({ defects: formatted, total });
     } catch (error) {
         res.status(500).json({ message: 'Database error', error: error.message });
     }
@@ -125,14 +183,59 @@ router.put('/:id', async (req, res) => {
     try {
         const defect = await Defect.findByIdAndUpdate(
             defectId,
-            { $set: updateData },
+            { 
+                $set: updateData,
+                $push: {
+                    activity_log: {
+                        action: `Defect updated`,
+                        user_id: req.user ? req.user.userId : null,
+                        user_name: req.user ? req.user.name : 'Unknown'
+                    }
+                }
+            },
             { new: true }
         );
 
         if (!defect) {
             return res.status(404).json({ message: 'Defect not found' });
         }
-        res.json({ message: 'Defect updated successfully' });
+        
+        if (updateData.assignee_id) {
+            await Notification.create({
+                user_id: updateData.assignee_id,
+                title: 'Defect Assignment Updated',
+                message: `You have been assigned to defect: ${defect.title}`,
+                link: '/defects',
+                type: 'assignment'
+            });
+        }
+
+        res.json({ message: 'Defect updated successfully', defect });
+    } catch (error) {
+        res.status(500).json({ message: 'Database error', error: error.message });
+    }
+});
+
+// Reopen Defect
+router.post('/:id/reopen', async (req, res) => {
+    try {
+        const defect = await Defect.findByIdAndUpdate(
+            req.params.id,
+            { 
+                $set: { status: 'Reopened', updated_at: Date.now() },
+                $push: {
+                    activity_log: {
+                        action: 'Defect reopened',
+                        user_id: req.user ? req.user.userId : null,
+                        user_name: req.user ? req.user.name : 'Unknown'
+                    }
+                }
+            },
+            { new: true }
+        );
+
+        if (!defect) return res.status(404).json({ message: 'Defect not found' });
+        res.json({ message: 'Defect reopened successfully' });
     } catch (error) {
         res.status(500).json({ message: 'Database error', error: error.message });
     }

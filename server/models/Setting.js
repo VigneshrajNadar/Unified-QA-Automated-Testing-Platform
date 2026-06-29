@@ -7,6 +7,7 @@ const settingSchema = new mongoose.Schema({
     security_strictness: { type: String, default: 'High' },
     notifications_enabled: { type: Boolean, default: true },
     rtm_strictness: { type: String, default: 'Strict' },
+    defect_custom_fields: { type: Array, default: [] }, // Array of { name: 'Field Name', type: 'text' | 'number' | 'dropdown', options: [] }
     updated_at: { type: Date, default: Date.now }
 });
 

@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { SeleniumJob } = require('../models/Selenium');
 const Defect = require('../models/Defect');
+const { callOpenRouter } = require('../routes/ai');
 
 const GRID_URL = process.env.SELENIUM_GRID_URL || 'http://localhost:4444/wd/hub';
 
@@ -149,6 +150,26 @@ class SeleniumService {
         }
     }
 
+    async healSelector(brokenSelector, targetUrl, log) {
+        log(`[AI Auto-Heal] Analyzing broken selector: '${brokenSelector}' on ${targetUrl}...`);
+        try {
+            const prompt = `You are an AI Test Automation assistant. The Selenium test failed to find the element with selector: "${brokenSelector}" on the page "${targetUrl}". 
+            Based on common modern web development patterns, suggest the most likely updated CSS or XPath selector for a button or input field that might have changed classes (e.g., from .old-btn to .btn-primary).
+            Return ONLY the new selector string, nothing else.`;
+            
+            let healedSelector = await callOpenRouter([{ role: 'user', content: prompt }]);
+            
+            // Clean up any quotes or markdown
+            healedSelector = healedSelector.replace(/^['"`]+|['"`]+$/g, '').trim();
+            
+            log(`[AI Auto-Heal] Suggested replacement: '${healedSelector}'. Applying patch and resuming...`);
+            return healedSelector;
+        } catch (err) {
+            log(`[AI Auto-Heal] Failed to reach AI provider: ${err.message}`);
+            return null;
+        }
+    }
+
     async runMockTest(jobId, scriptPath, browserName, targetUrl, executionId) {
         const logs = [];
         const log = (msg) => logs.push(`[${new Date().toISOString()}] ${msg}`);
@@ -162,7 +183,21 @@ class SeleniumService {
 
         await new Promise(resolve => setTimeout(resolve, 2000));
         log(`[Mock] Finding elements...`);
-        log(`[Mock] Interacting with page elements...`);
+        
+        // Simulate Self-Healing scenario occasionally
+        const needsHealing = Math.random() > 0.5;
+        if (needsHealing) {
+            log(`[Mock] Error: NoSuchElementError: no such element: Unable to locate element: {"method":"css selector","selector":"#submit-btn-v1"}`);
+            const newSelector = await this.healSelector('#submit-btn-v1', targetUrl, log);
+            if (newSelector) {
+                log(`[Mock] Successfully healed locator in memory. Interacting with ${newSelector}...`);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            } else {
+                log(`[Mock] Auto-heal failed. Falling back to manual intervention.`);
+            }
+        } else {
+            log(`[Mock] Interacting with page elements...`);
+        }
 
         const isSuccess = Math.random() > 0.2;
 

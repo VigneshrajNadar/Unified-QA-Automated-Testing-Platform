@@ -8,6 +8,7 @@ import LandingPage from './pages/LandingPage';
 import Layout from './components/Layout';
 import Projects from './pages/Projects';
 import ProjectDetails from './pages/ProjectDetails';
+import Board from './pages/Board';
 import TestCases from './pages/TestCases';
 import TestRuns from './pages/TestRuns';
 import ExecuteRun from './pages/ExecuteRun';
@@ -28,11 +29,19 @@ import APICollection from './pages/APICollection';
 import SeleniumDashboard from './pages/SeleniumDashboard';
 import SeleniumExecute from './pages/SeleniumExecute';
 import JobDetails from './pages/JobDetails';
+import MockServer from './pages/MockServer';
+import RTM from './pages/RTM';
+import Exploratory from './pages/Exploratory';
+import SystemDashboard from './pages/SystemDashboard';
+
+// 9. Web Monitor
 import WebMonitor from './pages/WebMonitor';
 import EcommerceAutomation from './pages/EcommerceAutomation';
 import PerformanceTesting from './pages/PerformanceTesting';
 import SecurityTesting from './pages/SecurityTesting';
-
+import AuditLogs from './pages/AuditLogs';
+import TIA from './pages/TIA';
+import BDDStudio from './pages/BDDStudio';
 
 const LoadingSpinner = () => (
   <div style={{
@@ -57,6 +66,12 @@ const RoleProtectedRoute = ({ children }) => {
 
 
 
+const FeatureProtectedRoute = ({ children, feature }) => {
+  const { hasAccess } = useAuth();
+  if (!hasAccess(feature)) return <Navigate to="/dashboard" />;
+  return children;
+};
+
 const App = () => {
   return (
     <AuthProvider>
@@ -68,45 +83,51 @@ const App = () => {
           <Route path="/signup" element={<Signup />} />
 
           <Route element={<RoleProtectedRoute><Layout /></RoleProtectedRoute>}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/projects" element={<Projects />} />
-            <Route path="/projects/:id" element={<ProjectDetails />} />
-            <Route path="/test-cases" element={<TestCases />} />
-            <Route path="/test-runs" element={<TestRuns />} />
-            <Route path="/runs/:id" element={<RunDetails />} />
-            <Route path="/execute-run/:id" element={<ExecuteRun />} />
-            <Route path="/defects" element={<Defects />} />
-            <Route path="/autotest" element={<AutoTest />} />
-            <Route path="/ai-testgen" element={<AITestGenerator />} />
-            <Route path="/visual-testing" element={<VisualTesting />} />
-            <Route path="/visual-run/:projectId" element={<VisualRun />} />
-            <Route path="/visual-diffs/:runId" element={<VisualDiffs />} />
-            <Route path="/visual-results/:runId" element={<VisualResults />} />
-            <Route path="/api-testing" element={<APITesting />} />
-            <Route path="/api-collection/:collectionId" element={<APICollection />} />
-            <Route path="/selenium" element={<SeleniumDashboard />} />
-            <Route path="/selenium/execute" element={<SeleniumExecute />} />
-            <Route path="/selenium/job/:id" element={<JobDetails />} />
+            <Route path="/dashboard" element={<FeatureProtectedRoute feature="dashboard"><Dashboard /></FeatureProtectedRoute>} />
+            <Route path="/board" element={<FeatureProtectedRoute feature="board"><Board /></FeatureProtectedRoute>} />
+            <Route path="/projects" element={<FeatureProtectedRoute feature="projects"><Projects /></FeatureProtectedRoute>} />
+            <Route path="/projects/:id" element={<FeatureProtectedRoute feature="projects"><ProjectDetails /></FeatureProtectedRoute>} />
+            <Route path="/rtm" element={<FeatureProtectedRoute feature="testcases"><RTM /></FeatureProtectedRoute>} />
+            <Route path="/test-cases" element={<FeatureProtectedRoute feature="testcases"><TestCases /></FeatureProtectedRoute>} />
+            <Route path="/test-runs" element={<FeatureProtectedRoute feature="testruns"><TestRuns /></FeatureProtectedRoute>} />
+            <Route path="/exploratory" element={<FeatureProtectedRoute feature="testruns"><Exploratory /></FeatureProtectedRoute>} />
+            <Route path="/runs/:id" element={<FeatureProtectedRoute feature="testruns"><RunDetails /></FeatureProtectedRoute>} />
+            <Route path="/execute-run/:id" element={<FeatureProtectedRoute feature="testruns"><ExecuteRun /></FeatureProtectedRoute>} />
+            <Route path="/defects" element={<FeatureProtectedRoute feature="defects"><Defects /></FeatureProtectedRoute>} />
+            <Route path="/autotest" element={<FeatureProtectedRoute feature="autotest"><AutoTest /></FeatureProtectedRoute>} />
+            <Route path="/ai-testgen" element={<FeatureProtectedRoute feature="ai-testgen"><AITestGenerator /></FeatureProtectedRoute>} />
+            <Route path="/visual-testing" element={<FeatureProtectedRoute feature="visual"><VisualTesting /></FeatureProtectedRoute>} />
+            <Route path="/visual-run/:projectId" element={<FeatureProtectedRoute feature="visual"><VisualRun /></FeatureProtectedRoute>} />
+            <Route path="/visual-diffs/:runId" element={<FeatureProtectedRoute feature="visual"><VisualDiffs /></FeatureProtectedRoute>} />
+            <Route path="/visual-results/:runId" element={<FeatureProtectedRoute feature="visual"><VisualResults /></FeatureProtectedRoute>} />
+            <Route path="/api-testing" element={<FeatureProtectedRoute feature="api-testing"><APITesting /></FeatureProtectedRoute>} />
+            <Route path="/api-collection/:collectionId" element={<FeatureProtectedRoute feature="api-testing"><APICollection /></FeatureProtectedRoute>} />
+            <Route path="/mock-server" element={<FeatureProtectedRoute feature="api-testing"><MockServer /></FeatureProtectedRoute>} />
+            <Route path="/selenium" element={<FeatureProtectedRoute feature="selenium"><SeleniumDashboard /></FeatureProtectedRoute>} />
+            <Route path="/selenium/execute" element={<FeatureProtectedRoute feature="selenium"><SeleniumExecute /></FeatureProtectedRoute>} />
+            <Route path="/selenium/job/:id" element={<FeatureProtectedRoute feature="selenium"><JobDetails /></FeatureProtectedRoute>} />
+            <Route path="/system" element={<FeatureProtectedRoute feature="dashboard"><SystemDashboard /></FeatureProtectedRoute>} />
 
             {/* Project 9: Web Monitor */}
-            <Route path="/monitor" element={<WebMonitor />} />
+            <Route path="/monitor" element={<FeatureProtectedRoute feature="monitor"><WebMonitor /></FeatureProtectedRoute>} />
 
             {/* Project 10: E-Commerce Automation */}
-            <Route path="/ecommerce" element={<EcommerceAutomation key="ecom" initialMode="sauce" />} />
+            <Route path="/ecommerce" element={<FeatureProtectedRoute feature="ecommerce"><EcommerceAutomation key="ecom" initialMode="sauce" /></FeatureProtectedRoute>} />
 
 
             {/* Performance Testing */}
-            <Route path="/performance" element={<PerformanceTesting />} />
-
-            {/* Mobile Testing (Removed) */}
+            <Route path="/performance" element={<FeatureProtectedRoute feature="performance"><PerformanceTesting /></FeatureProtectedRoute>} />
 
             {/* Project 7: Security Tool */}
-            <Route path="/security" element={<SecurityTesting />} />
+            <Route path="/security" element={<FeatureProtectedRoute feature="security"><SecurityTesting /></FeatureProtectedRoute>} />
+            <Route path="/tia" element={<FeatureProtectedRoute feature="autotest"><TIA /></FeatureProtectedRoute>} />
+            <Route path="/bdd" element={<FeatureProtectedRoute feature="autotest"><BDDStudio /></FeatureProtectedRoute>} />
 
-            <Route path="/requirements" element={<Requirements />} />
+            <Route path="/requirements" element={<FeatureProtectedRoute feature="requirements"><Requirements /></FeatureProtectedRoute>} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/users" element={<Users />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/users" element={<FeatureProtectedRoute feature="all"><Users /></FeatureProtectedRoute>} />
+            <Route path="/audit-logs" element={<FeatureProtectedRoute feature="all"><AuditLogs /></FeatureProtectedRoute>} />
+            <Route path="/settings" element={<FeatureProtectedRoute feature="settings"><Settings /></FeatureProtectedRoute>} />
           </Route>
         </Routes>
       </Router>

@@ -73,25 +73,38 @@ router.get('/', async (req, res) => {
 
 // Create Test Run
 router.post('/', async (req, res) => {
-    const { project_id, test_suite_id, name } = req.body;
+    const { project_id, test_suite_id, test_case_ids, name } = req.body;
 
-    if (!project_id || !test_suite_id || !name) return res.status(400).json({ message: 'Required fields missing' });
+    if (!project_id || !name) return res.status(400).json({ message: 'Project and Name are required' });
+    if (!test_suite_id && (!test_case_ids || test_case_ids.length === 0)) {
+        return res.status(400).json({ message: 'Must provide either test_suite_id or test_case_ids' });
+    }
 
     try {
-        const suite = await TestSuite.findById(test_suite_id);
-        if (!suite) return res.status(404).json({ message: 'Test Suite not found' });
-
-        const results = suite.test_cases.map(tcId => ({
-            test_case_id: tcId,
-            status: 'Not Run'
-        }));
+        let results = [];
+        
+        if (test_suite_id) {
+            const suite = await TestSuite.findById(test_suite_id);
+            if (!suite) return res.status(404).json({ message: 'Test Suite not found' });
+            
+            results = suite.test_cases.map(tcId => ({
+                test_case_id: tcId,
+                status: 'Not Run'
+            }));
+        } else {
+            results = test_case_ids.map(tcId => ({
+                test_case_id: tcId,
+                status: 'Not Run'
+            }));
+        }
 
         const newRun = new TestRun({
             project_id,
-            test_suite_id,
+            test_suite_id: test_suite_id || undefined,
             name,
             created_by: req.user ? req.user.userId : null,
-            results
+            results,
+            status: 'Pending'
         });
 
         await newRun.save();
@@ -109,7 +122,7 @@ router.get('/:id', async (req, res) => {
             .populate('created_by', 'name')
             .populate({
                 path: 'results.test_case_id',
-                select: 'title priority'
+                select: 'title priority steps'
             })
             .lean();
 
@@ -120,7 +133,8 @@ router.get('/:id', async (req, res) => {
             ...r,
             test_case_id: r.test_case_id ? r.test_case_id._id : null,
             title: r.test_case_id ? r.test_case_id.title : 'Deleted Case',
-            priority: r.test_case_id ? r.test_case_id.priority : 'Unknown'
+            priority: r.test_case_id ? r.test_case_id.priority : 'Unknown',
+            steps: r.test_case_id ? r.test_case_id.steps : []
         }));
 
         res.json({
@@ -138,23 +152,51 @@ router.get('/:id', async (req, res) => {
 // Update Result (Execute)
 router.post('/:id/results', async (req, res) => {
     const runId = req.params.id;
-    const { test_case_id, status, actual_result, comments } = req.body;
+    const { test_case_id, status, actual_result, comments, step_results } = req.body;
 
     try {
+        const updateFields = {
+            "results.$.status": status,
+            "results.$.actual_result": actual_result,
+            "results.$.comments": comments
+        };
+        
+        if (step_results !== undefined) {
+            updateFields["results.$.step_results"] = step_results;
+        }
+
         const run = await TestRun.findOneAndUpdate(
             { _id: runId, "results.test_case_id": test_case_id },
-            { 
-                $set: { 
-                    "results.$.status": status,
-                    "results.$.actual_result": actual_result,
-                    "results.$.comments": comments
-                }
-            },
+            { $set: updateFields },
             { new: true }
         );
 
         if (!run) return res.status(404).json({ message: 'Run or Test Case not found' });
-        res.json({ message: 'Result updated' });
+
+        // Update overall run status
+        const allCompleted = run.results.every(r => r.status !== 'Not Run');
+        
+        if (allCompleted) {
+            run.status = 'Completed';
+            run.completed_at = new Date();
+        } else if (run.status === 'Pending') {
+            run.status = 'In Progress';
+            run.started_at = new Date();
+        }
+        
+        await run.save();
+
+        res.json({ message: 'Result updated', run_status: run.status });
+    } catch (error) {
+        res.status(500).json({ message: 'Database error', error: error.message });
+    }
+});
+
+// Delete Run
+router.delete('/:id', async (req, res) => {
+    try {
+        await TestRun.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Test Run deleted' });
     } catch (error) {
         res.status(500).json({ message: 'Database error', error: error.message });
     }

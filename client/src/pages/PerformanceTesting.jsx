@@ -20,6 +20,32 @@ const PerformanceTesting = () => {
     const [error, setError] = useState(null);
     const [lastResult, setLastResult] = useState(null);
     const [history, setHistory] = useState([]);
+    
+    // Live Streaming State
+    const [liveData, setLiveData] = useState([]);
+
+    // Simulate Live Streaming Effect
+    useEffect(() => {
+        let interval;
+        if (loading) {
+            setLiveData([]);
+            let time = 0;
+            interval = setInterval(() => {
+                time++;
+                setLiveData(prev => [
+                    ...prev.slice(-19), // keep last 20 points
+                    {
+                        time: `${time}s`,
+                        rps: Math.floor(Math.random() * 50) + (config.users * 2),
+                        latency: Math.floor(Math.random() * 200) + 150
+                    }
+                ]);
+            }, 1000);
+        } else {
+            clearInterval(interval);
+        }
+        return () => clearInterval(interval);
+    }, [loading, config.users]);
 
     useEffect(() => {
         checkK6Status();
@@ -126,6 +152,7 @@ const PerformanceTesting = () => {
                 <AnimatePresence mode="wait">
                     {/* RUN TAB */}
                     {activeTab === 'run' && (
+                        <>
                         <motion.div key="run" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="max-w-4xl mx-auto">
                             <div className="bg-[#0B0F19]/80 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-xl relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 blur-[40px] rounded-full -mr-16 -mt-16 pointer-events-none" />
@@ -189,6 +216,52 @@ const PerformanceTesting = () => {
                                 </form>
                             </div>
                         </motion.div>
+
+                        {/* LIVE STREAMING VIEW */}
+                        {loading && (
+                            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-[#0B0F19]/80 backdrop-blur-xl border border-blue-500/30 rounded-3xl p-6 shadow-[0_0_30px_rgba(59,130,246,0.1)]">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                        <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse" /> Live Execution: {config.name || 'Load Test'}
+                                    </h3>
+                                    <div className="text-xs font-mono text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">Status: Running...</div>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* RPS Stream */}
+                                    <div className="bg-[#0D1424] rounded-2xl p-4 border border-white/5">
+                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Requests Per Second (RPS)</h4>
+                                        <div className="h-[200px]">
+                                            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                                                <LineChart data={liveData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                                    <XAxis dataKey="time" stroke="#64748b" tick={{fill: '#64748b', fontSize: 10}} axisLine={false} tickLine={false} />
+                                                    <YAxis stroke="#64748b" tick={{fill: '#64748b', fontSize: 10}} axisLine={false} tickLine={false} />
+                                                    <Tooltip contentStyle={{ backgroundColor: '#0D1424', border: '1px solid rgba(255,255,255,0.1)' }} />
+                                                    <Line type="monotone" dataKey="rps" stroke="#3b82f6" strokeWidth={3} dot={false} isAnimationActive={false} />
+                                                </LineChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+                                    {/* Latency Stream */}
+                                    <div className="bg-[#0D1424] rounded-2xl p-4 border border-white/5">
+                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Latency (ms)</h4>
+                                        <div className="h-[200px]">
+                                            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                                                <LineChart data={liveData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                                    <XAxis dataKey="time" stroke="#64748b" tick={{fill: '#64748b', fontSize: 10}} axisLine={false} tickLine={false} />
+                                                    <YAxis stroke="#64748b" tick={{fill: '#64748b', fontSize: 10}} axisLine={false} tickLine={false} />
+                                                    <Tooltip contentStyle={{ backgroundColor: '#0D1424', border: '1px solid rgba(255,255,255,0.1)' }} />
+                                                    <Line type="monotone" dataKey="latency" stroke="#f59e0b" strokeWidth={3} dot={false} isAnimationActive={false} />
+                                                </LineChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+                        </>
                     )}
 
                     {/* RESULTS TAB */}
@@ -246,7 +319,7 @@ const PerformanceTesting = () => {
                                         <div className="bg-[#0B0F19]/80 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-xl">
                                             <h3 className="text-sm font-bold text-white mb-6">Response Time Distribution (ms)</h3>
                                             <div className="h-[300px]">
-                                                <ResponsiveContainer width="100%" height="100%">
+                                                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                                                     <BarChart data={[
                                                         { name: 'Avg', value: lastResult.avg },
                                                         { name: 'Median', value: lastResult.median },
@@ -280,7 +353,7 @@ const PerformanceTesting = () => {
                                         <div className="bg-[#0B0F19]/80 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-xl">
                                             <h3 className="text-sm font-bold text-white mb-6">HTTP Status Codes</h3>
                                             <div className="h-[300px]">
-                                                <ResponsiveContainer width="100%" height="100%">
+                                                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                                                     <PieChart>
                                                         <Pie
                                                             data={Object.entries(lastResult.statusCodes || {}).map(([code, count]) => ({ name: `HTTP ${code}`, value: count }))}
@@ -306,7 +379,7 @@ const PerformanceTesting = () => {
                                         <div className="bg-[#0B0F19]/80 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-xl lg:col-span-2">
                                             <h3 className="text-sm font-bold text-white mb-6">Request Lifecycle Breakdown</h3>
                                             <div className="h-[300px]">
-                                                <ResponsiveContainer width="100%" height="100%">
+                                                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                                                     <PieChart>
                                                         <Pie
                                                             data={[

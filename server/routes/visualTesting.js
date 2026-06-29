@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
+const multer = require('multer');
 
 const VisualProject = require('../models/VisualProject');
 const VisualRun = require('../models/VisualRun');
@@ -14,6 +15,48 @@ const UPLOAD_DIR = path.join(__dirname, '../uploads/visual-tests');
 const BASELINES_DIR = path.join(UPLOAD_DIR, 'baselines');
 const CURRENT_DIR = path.join(UPLOAD_DIR, 'current');
 const DIFFS_DIR = path.join(UPLOAD_DIR, 'diffs');
+const DIRECT_UPLOAD_DIR = path.join(UPLOAD_DIR, 'direct_uploads');
+
+if (!fs.existsSync(DIRECT_UPLOAD_DIR)) {
+    fs.mkdirSync(DIRECT_UPLOAD_DIR, { recursive: true });
+}
+const upload = multer({ dest: DIRECT_UPLOAD_DIR });
+
+router.get('/image', (req, res) => {
+    const { path: imagePath } = req.query;
+    if (!imagePath || !fs.existsSync(imagePath)) {
+        return res.status(404).json({ error: 'Image not found' });
+    }
+    res.sendFile(imagePath);
+});
+
+router.post('/compare-upload', upload.fields([{ name: 'baseline', maxCount: 1 }, { name: 'actual', maxCount: 1 }]), async (req, res) => {
+    try {
+        const baselineFile = req.files['baseline']?.[0];
+        const actualFile = req.files['actual']?.[0];
+
+        if (!baselineFile || !actualFile) {
+            return res.status(400).json({ error: 'Both baseline and actual images are required' });
+        }
+
+        const runId = Date.now().toString();
+        const diffFilename = `diff_${runId}.png`;
+        const diffPath = path.join(DIFFS_DIR, `direct_run_${runId}`, diffFilename);
+
+        const comparison = compareImages(baselineFile.path, actualFile.path, diffPath, { threshold: 0.1 });
+
+        if (!comparison.success) {
+            return res.status(400).json({ error: comparison.error });
+        }
+
+        res.json({
+            success: true,
+            ...comparison
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 
 router.post('/create-project', async (req, res) => {
     const { project_id, base_url, name } = req.body;

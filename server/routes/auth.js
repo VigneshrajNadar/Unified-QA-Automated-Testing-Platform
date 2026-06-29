@@ -7,6 +7,36 @@ const SECRET_KEY = process.env.JWT_SECRET || process.env.SECRET_KEY || 'qa-tool-
 
 const router = express.Router();
 
+// Seed Demo Users automatically on server start
+const seedDemoUsers = async () => {
+    try {
+        const demoUsers = [
+            { name: 'Admin User', email: 'admin@meghana.com', password: 'admin123', role: 'Admin' },
+            { name: 'Developer User', email: 'dev@meghana.com', password: 'dev123', role: 'Developer' },
+            { name: 'Tester User', email: 'tester@meghana.com', password: 'tester123', role: 'Tester' }
+        ];
+
+        for (const u of demoUsers) {
+            const exists = await User.findOne({ email: u.email });
+            const hashedPassword = await bcrypt.hash(u.password, 10);
+            if (!exists) {
+                const newUser = new User({ ...u, password: hashedPassword });
+                await newUser.save();
+                console.log(`Seeded demo user: ${u.email}`);
+            } else {
+                exists.password = hashedPassword;
+                exists.role = u.role;
+                await exists.save();
+                console.log(`Updated demo user: ${u.email}`);
+            }
+        }
+    } catch (err) {
+        console.error('Failed to seed demo users:', err);
+    }
+};
+// Run the seeder (without awaiting so it runs in background)
+setTimeout(() => seedDemoUsers(), 3000);
+
 // Register
 router.post('/register', async (req, res) => {
     const { name, email, password, role } = req.body;

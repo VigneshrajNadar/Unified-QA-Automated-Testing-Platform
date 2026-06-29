@@ -21,6 +21,8 @@ const TestRuns = () => {
     // Run Form
     const [runName, setRunName] = useState('');
     const [selectedSuite, setSelectedSuite] = useState('');
+    const [runMode, setRunMode] = useState('suite'); // 'suite' or 'quick'
+    const [runTestCases, setRunTestCases] = useState([]);
 
     // Modal States
     const [showSuiteForm, setShowSuiteForm] = useState(false);
@@ -96,16 +98,28 @@ const TestRuns = () => {
         try {
             await api.post('/runs', {
                 project_id: selectedProject,
-                test_suite_id: selectedSuite,
+                test_suite_id: runMode === 'suite' ? selectedSuite : undefined,
+                test_case_ids: runMode === 'quick' ? runTestCases : undefined,
                 name: runName
             });
             setRunName('');
             setSelectedSuite('');
+            setRunTestCases([]);
             setShowRunForm(false);
             fetchRuns();
             setActiveTab('runs');
         } catch (err) {
             alert('Failed to create run');
+        }
+    };
+
+    const handleDeleteRun = async (runId) => {
+        if (!confirm('Are you sure you want to delete this test run?')) return;
+        try {
+            await api.delete(`/runs/${runId}`);
+            fetchRuns();
+        } catch (err) {
+            alert('Failed to delete run');
         }
     };
 
@@ -256,17 +270,33 @@ const TestRuns = () => {
                                                     <PlaySquare className="w-6 h-6 text-cyan-400" />
                                                 </div>
                                                 <div>
-                                                    <h4 className="text-lg font-bold text-white mb-1">{r.name}</h4>
+                                                    <div className="flex items-center gap-3 mb-1">
+                                                        <h4 className="text-lg font-bold text-white">{r.name}</h4>
+                                                        <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded border ${
+                                                            r.status === 'Completed' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 
+                                                            r.status === 'In Progress' ? 'text-blue-400 bg-blue-500/10 border-blue-500/20' : 
+                                                            'text-amber-400 bg-amber-500/10 border-amber-500/20'
+                                                        }`}>
+                                                            {r.status || 'Pending'}
+                                                        </span>
+                                                    </div>
                                                     <div className="flex items-center gap-3 text-xs text-slate-500 font-medium">
                                                         <span className="flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" /> Executed by {r.executed_by_name || 'Unknown'}</span>
                                                         <span>•</span>
                                                         <span>{new Date(r.created_at).toLocaleString()}</span>
+                                                        <span>•</span>
+                                                        <span>{r.suite_name === 'Unknown' ? 'Quick Run' : `Suite: ${r.suite_name}`}</span>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <Link to={`/execute-run/${r.test_run_id}`} className="w-full md:w-auto px-6 py-2.5 bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold text-sm rounded-xl transition-colors text-center">
-                                                Execute / View Results
-                                            </Link>
+                                            <div className="flex w-full md:w-auto items-center gap-2">
+                                                <Link to={`/execute-run/${r.test_run_id}`} className="flex-1 md:flex-none px-6 py-2.5 bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold text-sm rounded-xl transition-colors text-center">
+                                                    Execute / View Results
+                                                </Link>
+                                                <button onClick={() => handleDeleteRun(r.test_run_id)} className="p-2.5 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 text-rose-400 rounded-xl transition-colors">
+                                                    <X className="w-5 h-5" />
+                                                </button>
+                                            </div>
                                         </div>
                                     ))
                                 )}
@@ -334,18 +364,59 @@ const TestRuns = () => {
                                 <h3 className="text-lg font-bold text-white flex items-center gap-2"><PlaySquare className="w-5 h-5 text-cyan-400" /> Start New Run</h3>
                                 <button onClick={() => setShowRunForm(false)} className="text-slate-400 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
                             </div>
-                            <form id="run-form" onSubmit={handleCreateRun} className="p-6 space-y-5">
+                            <form id="run-form" onSubmit={handleCreateRun} className="p-6 space-y-5 overflow-y-auto max-h-[60vh] custom-scrollbar">
                                 <div>
                                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Run Name *</label>
                                     <input required type="text" placeholder="e.g. Release 1.0 Regression" value={runName} onChange={e => setRunName(e.target.value)} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-500/50 transition-colors" />
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Test Suite *</label>
-                                    <select required value={selectedSuite} onChange={e => setSelectedSuite(e.target.value)} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-500/50 transition-colors appearance-none">
-                                        <option value="" className="bg-[#0D1424]">Select Test Suite</option>
-                                        {suites.map(s => <option key={s.test_suite_id} value={s.test_suite_id} className="bg-[#0D1424]">{s.name}</option>)}
-                                    </select>
+
+                                <div className="flex p-1 bg-[#0D1424] border border-white/10 rounded-xl w-full">
+                                    <button 
+                                        type="button"
+                                        onClick={() => setRunMode('suite')} 
+                                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${runMode === 'suite' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'text-slate-400 hover:text-white border border-transparent'}`}
+                                    >
+                                        From Suite
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setRunMode('quick')} 
+                                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${runMode === 'quick' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'text-slate-400 hover:text-white border border-transparent'}`}
+                                    >
+                                        Quick Run (Custom)
+                                    </button>
                                 </div>
+
+                                {runMode === 'suite' ? (
+                                    <div>
+                                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Test Suite *</label>
+                                        <select required value={selectedSuite} onChange={e => setSelectedSuite(e.target.value)} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-cyan-500/50 transition-colors appearance-none">
+                                            <option value="" className="bg-[#0D1424]">Select Test Suite</option>
+                                            {suites.map(s => <option key={s.test_suite_id} value={s.test_suite_id} className="bg-[#0D1424]">{s.name}</option>)}
+                                        </select>
+                                    </div>
+                                ) : (
+                                    <div className="p-4 rounded-xl border border-white/10 bg-black/20">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Select Test Cases</label>
+                                        </div>
+                                        <div className="max-h-[250px] overflow-y-auto custom-scrollbar pr-2 space-y-2">
+                                            {availableTestCases.length === 0 ? (
+                                                <p className="text-sm text-slate-500 py-4 text-center">No test cases available.</p>
+                                            ) : (
+                                                availableTestCases.map(tc => (
+                                                    <label key={tc.test_case_id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${runTestCases.includes(tc.test_case_id) ? 'bg-cyan-500/10 border-cyan-500/30' : 'bg-white/5 border-white/5 hover:border-white/20'}`}>
+                                                        <input type="checkbox" checked={runTestCases.includes(tc.test_case_id)} onChange={() => {
+                                                            if (runTestCases.includes(tc.test_case_id)) setRunTestCases(runTestCases.filter(id => id !== tc.test_case_id));
+                                                            else setRunTestCases([...runTestCases, tc.test_case_id]);
+                                                        }} className="accent-cyan-500 w-4 h-4 rounded border-white/20 bg-[#0D1424]" />
+                                                        <span className="text-sm text-white font-medium select-none">{tc.title}</span>
+                                                    </label>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </form>
                             <div className="p-4 border-t border-white/10 bg-white/5 flex gap-3">
                                 <button type="button" onClick={() => setShowRunForm(false)} className="flex-1 py-3 px-4 bg-white/5 border border-white/10 rounded-xl text-white text-sm font-bold hover:bg-white/10 transition-colors">Cancel</button>

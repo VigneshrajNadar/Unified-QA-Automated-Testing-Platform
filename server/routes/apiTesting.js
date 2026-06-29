@@ -6,6 +6,56 @@ const { executeApiRequest, executeMultipleRequests } = require('../services/apiE
 const { validateSchema } = require('../services/schemaValidator');
 const { parseSwaggerSpec, convertPathsToRequests } = require('../services/swaggerParser');
 const { scheduleMonitor, stopMonitor } = require('../services/monitorScheduler');
+const Environment = require('../models/Environment');
+
+// ============================================
+// ENVIRONMENT MANAGEMENT
+// ============================================
+
+router.get('/environments', async (req, res) => {
+    try {
+        const envs = await Environment.find();
+        res.json(envs);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/environments', async (req, res) => {
+    try {
+        const newEnv = new Environment({
+            project_id: req.body.project_id,
+            name: req.body.name,
+            variables: req.body.variables || [],
+            created_by: req.user ? req.user.userId : null
+        });
+        await newEnv.save();
+        res.status(201).json(newEnv);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.put('/environments/:id', async (req, res) => {
+    try {
+        const env = await Environment.findByIdAndUpdate(req.params.id, {
+            name: req.body.name,
+            variables: req.body.variables
+        }, { new: true });
+        res.json(env);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.delete('/environments/:id', async (req, res) => {
+    try {
+        await Environment.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 
 // ============================================
 // COLLECTION MANAGEMENT
@@ -166,8 +216,9 @@ router.post('/execute/:id', async (req, res) => {
         
         // Map _id to request_id for the executor service
         const reqObj = { ...request.toObject(), request_id: request._id };
+        const envVars = req.body.envVars || {};
 
-        const result = await executeApiRequest(reqObj);
+        const result = await executeApiRequest(reqObj, envVars);
 
         let schema_valid = null;
         if (request.schema && result.response_body) {
@@ -212,7 +263,8 @@ router.post('/execute-collection/:id', async (req, res) => {
         }
 
         const reqsObj = collection.requests.map(r => ({ ...r.toObject(), request_id: r._id }));
-        const results = await executeMultipleRequests(reqsObj);
+        const envVars = req.body.envVars || {};
+        const results = await executeMultipleRequests(reqsObj, envVars);
 
         for (const result of results) {
             const request = collection.requests.id(result.request_id);

@@ -137,6 +137,14 @@ export default function Login() {
               </div>
             </div>
 
+            {/* Quick Demo Logins */}
+            <div className="flex items-center justify-center gap-3">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Demo Accounts:</span>
+              <button type="button" onClick={() => {setEmail('admin@meghana.com'); setPassword('admin123');}} className="px-2 py-1 text-xs font-bold text-cyan-400 bg-cyan-500/10 rounded-lg hover:bg-cyan-500/20 transition-colors">Admin</button>
+              <button type="button" onClick={() => {setEmail('dev@meghana.com'); setPassword('dev123');}} className="px-2 py-1 text-xs font-bold text-emerald-400 bg-emerald-500/10 rounded-lg hover:bg-emerald-500/20 transition-colors">Developer</button>
+              <button type="button" onClick={() => {setEmail('tester@meghana.com'); setPassword('tester123');}} className="px-2 py-1 text-xs font-bold text-indigo-400 bg-indigo-500/10 rounded-lg hover:bg-indigo-500/20 transition-colors">Tester</button>
+            </div>
+
             {/* Submit */}
             <button
               type="submit"

@@ -3,7 +3,39 @@ const Requirement = require('../models/Requirement');
 
 const router = express.Router();
 
-// 1. GET ALL (With RTM & Hierarchy Info)
+// 1. GET RTM (Requirements Traceability Matrix)
+router.get('/rtm/:projectId', async (req, res) => {
+    try {
+        const reqs = await Requirement.find({ project_id: req.params.projectId })
+            .populate('test_cases', 'title status priority')
+            .lean();
+            
+        // For each test case, fetch its defects
+        const Defect = require('../models/Defect');
+        
+        const formatted = await Promise.all(reqs.map(async (r) => {
+            const mappedTestCases = await Promise.all(r.test_cases.map(async (tc) => {
+                const defects = await Defect.find({ test_case_id: tc._id }).select('title status severity defect_id').lean();
+                return {
+                    ...tc,
+                    defects: defects.map(d => ({ ...d, defect_id: d._id }))
+                };
+            }));
+            
+            return {
+                ...r,
+                requirement_id: r._id,
+                test_cases: mappedTestCases
+            };
+        }));
+        
+        res.json(formatted);
+    } catch (error) {
+        res.status(500).json({ message: 'Database error', error: error.message });
+    }
+});
+
+// 2. GET ALL (With Hierarchy Info)
 router.get('/', async (req, res) => {
     const { project_id } = req.query;
     if (!project_id) return res.status(400).json({ message: 'Project ID required' });

@@ -8,14 +8,30 @@ const axios = require('axios');
 /**
  * Execute an API request
  * @param {Object} request - Request configuration
+ * @param {Object} envVars - Key-value map of environment variables
  * @returns {Object} Response with status, body, time, etc.
  */
-async function executeApiRequest(request) {
+async function executeApiRequest(request, envVars = {}) {
     const startTime = Date.now();
+
+    // Helper to replace {{var}} patterns
+    const injectVars = (str) => {
+        if (!str || typeof str !== 'string') return str;
+        return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
+            return envVars[key.trim()] !== undefined ? envVars[key.trim()] : match;
+        });
+    };
 
     try {
         // Prepare headers
-        const headers = request.headers ? JSON.parse(request.headers) : {};
+        let headers = {};
+        if (request.headers) {
+            try {
+                headers = typeof request.headers === 'string' ? JSON.parse(request.headers) : request.headers;
+            } catch (e) {
+                console.warn('Invalid headers JSON:', request.headers);
+            }
+        }
 
         // Add authentication
         if (request.auth_type && request.auth_type !== 'none' && request.auth_value) {
@@ -31,12 +47,12 @@ async function executeApiRequest(request) {
         }
 
         // Handle params (path + query)
-        let finalUrl = request.url;
+        let finalUrl = injectVars(request.url);
         let queryParams = {};
 
         if (request.params) {
             try {
-                const params = JSON.parse(request.params);
+                const params = typeof request.params === 'string' ? JSON.parse(request.params) : request.params;
 
                 // Separate path params and query params
                 Object.keys(params).forEach(key => {
@@ -64,15 +80,24 @@ async function executeApiRequest(request) {
             validateStatus: () => true // Don't throw on any status code
         };
 
-        // Add body for POST/PUT/PATCH
-        if (['POST', 'PUT', 'PATCH'].includes(request.method.toUpperCase()) && request.body) {
+        let requestBody = undefined;
+        if (request.body && ['POST', 'PUT', 'PATCH'].includes(request.method)) {
             try {
-                config.data = JSON.parse(request.body);
+                const bodyStr = typeof request.body === 'string' ? request.body : JSON.stringify(request.body);
+                requestBody = JSON.parse(injectVars(bodyStr));
             } catch (e) {
-                // If not JSON, send as-is
-                config.data = request.body;
+                // If it fails to parse as JSON, send as string
+                requestBody = injectVars(request.body);
             }
         }
+        if (requestBody !== undefined) config.data = requestBody;
+
+        // Apply to headers as well
+        Object.keys(headers).forEach(key => {
+            if (typeof headers[key] === 'string') {
+                headers[key] = injectVars(headers[key]);
+            }
+        });
 
         // Execute request
         const response = await axios(config);
@@ -80,7 +105,7 @@ async function executeApiRequest(request) {
 
         // Check if status matches expected (if specified)
         const statusMatch = request.expected_status
-            ? response.status === request.expected_status
+            ? response.status === Number(request.expected_status)
             : true;
 
         return {
@@ -109,16 +134,17 @@ async function executeApiRequest(request) {
 /**
  * Execute multiple requests in sequence
  * @param {Array} requests - Array of request objects
+ * @param {Object} envVars - Key-value map of environment variables
  * @returns {Array} Array of results
  */
-async function executeMultipleRequests(requests) {
+async function executeMultipleRequests(requests, envVars = {}) {
     const results = [];
-
-    for (const request of requests) {
-        const result = await executeApiRequest(request);
+    
+    for (const req of requests) {
+        const result = await executeApiRequest(req, envVars);
         results.push({
-            request_id: request.request_id,
-            name: request.name,
+            request_id: req.request_id,
+            name: req.name,
             ...result
         });
     }
